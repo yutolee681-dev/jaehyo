@@ -18,7 +18,7 @@ st.title("🏋️ 윤아게이트 1RM을 기억해!! ")
 
 # 3. 사용자 입력 섹션
 user_name = st.text_input("사용자 이름을 입력하세요 (예: 재효)", value="재효")
-exercise_list = ["Clean", "Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
+exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
 exercise = st.selectbox("운동 선택", exercise_list)
 
 # 기존 기록 불러오기
@@ -73,4 +73,5 @@ if new_weight > 0:
             st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
 st.info("💡 기록을 저장하면 다음 접속 시 자동으로 불러옵니다.")
+
 
