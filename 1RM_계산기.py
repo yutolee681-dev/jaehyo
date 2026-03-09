@@ -40,7 +40,7 @@ if st.button("기록 저장하기"):
     updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
     
     # 구글 시트에 반영
-    conn.update(data=updated_df)
+    conn.update(worksheet="시트1", data=updated_df)
     st.balloons()
     st.success(f"'{user_name}'님의 {exercise} 기록이 {new_weight}lbs로 저장되었습니다!")
 
@@ -59,3 +59,4 @@ if new_weight > 0:
             st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
 st.info("💡 기록을 저장하면 다음 접속 시 자동으로 불러옵니다.")
+
