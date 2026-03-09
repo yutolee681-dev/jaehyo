@@ -1,35 +1,61 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
 # 페이지 설정
-st.set_page_config(page_title="1RM Calculator", layout="centered")
+st.set_page_config(page_title="CrossFit 1RM Tracker", layout="centered")
 
-st.title("🏋️ 나의 1RM 훈련 계산기")
+# 1. 구글 시트 연결 (secrets.toml 설정 기반)
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 1. 운동 항목 및 1RM 입력
-col1, col2 = st.columns(2)
-with col1:
-    exercise = st.selectbox("운동 선택", ["Clean", "Snatch", "Deadlift", "Back Squat", "Shoulder Press"])
-with col2:
-    one_rm = st.number_input("현재 1RM (kg)", min_value=0.0, value=100.0, step=2.5)
+# 기존 데이터 읽어오기 (없으면 빈 데이터프레임 생성)
+try:
+    df = conn.read()
+except:
+    df = pd.DataFrame(columns=['name', 'exercise', 'weight'])
+
+st.title("🏋️ 나의 1RM 저장소")
+
+# 2. 사용자 입력 섹션
+user_name = st.text_input("사용자 이름을 입력하세요 (예: 재효)", value="재효")
+exercise_list = ["Clean", "Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
+exercise = st.selectbox("운동 선택", exercise_list)
+
+# 해당 사용자의 기존 기록 찾기
+existing_data = df[(df['name'] == user_name) & (df['exercise'] == exercise)]
+
+if not existing_data.empty:
+    default_weight = float(existing_data.iloc[0]['weight'])
+    st.success(f"✅ 기존 기록을 불러왔습니다: {default_weight} lbs")
+else:
+    default_weight = 0.0
+    st.info("기록이 없습니다. 새로운 중량을 입력해 주세요.")
+
+# 3. 중량 입력 및 저장 버튼
+new_weight = st.number_input(f"{exercise} 1RM 입력 (lbs)", value=default_weight, step=5.0)
+
+if st.button("기록 저장하기"):
+    # 데이터 업데이트: 기존 기록은 지우고 새 기록 추가
+    new_record = pd.DataFrame([{"name": user_name, "exercise": exercise, "weight": new_weight}])
+    updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
+    
+    # 구글 시트에 반영
+    conn.update(data=updated_df)
+    st.balloons()
+    st.success(f"'{user_name}'님의 {exercise} 기록이 {new_weight}lbs로 저장되었습니다!")
 
 st.divider()
 
-# 2. 계산 결과 출력 (3열 레이아웃)
-st.subheader(f"📊 {exercise} 강도별 중량")
+# 4. 강도별 중량 계산 출력
+if new_weight > 0:
+    st.subheader(f"📊 {exercise} {new_weight}lbs 기준 강도")
+    target_percents = [50, 60, 70, 75, 80, 85, 90, 95, 100]
+    cols = st.columns(3)
 
-# 자주 사용하는 퍼센트 구간
-target_percents = [50, 60, 70, 75, 80, 85, 90, 95, 100, 105]
+    for i, p in enumerate(target_percents):
+        with cols[i % 3]:
+            # 2.5단위 반올림 (플레이트 세팅용)
+            calc_w = round((new_weight * p / 100) / 2.5) * 2.5
+            st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
-cols = st.columns(3)  # 폰에서 보기 좋게 3열로 구성
-
-for i, p in enumerate(target_percents):
-    with cols[i % 3]:
-        # 계산식 및 2.5단위 반올림 (플레이트 세팅용)
-        raw_weight = one_rm * (p / 100)
-        plate_weight = round(raw_weight / 2.5) * 2.5
-
-        # 90% 이상은 강조색(빨간색) 표시
-        color = "inverse" if p >= 90 else "normal"
-        st.metric(label=f"{p}%", value=f"{plate_weight}kg")
-
-st.info("💡 모든 중량은 2.5kg 단위로 반올림되었습니다.")
+st.info("💡 기록을 저장하면 다음 접속 시 자동으로 불러옵니다.")
