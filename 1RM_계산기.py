@@ -96,8 +96,8 @@ if st.button("기록 저장하기"):
         try:
             # 컬럼 순서 강제 고정
             updated_df = updated_df[['name', 'exercise', 'weight', 'date', 'password']]
-            # 시트 이름이 하단 탭 이름("시트1")과 일치해야 합니다.
-            conn.update(worksheet="시트1", data=updated_df)
+            # 시트 이름이 하단 탭 이름("정보")과 일치해야 합니다.
+            conn.update(worksheet="정보", data=updated_df)
             
             if prev_max > 0 and new_weight > prev_max:
                 st.balloons()
@@ -106,8 +106,8 @@ if st.button("기록 저장하기"):
                 st.success("성공적으로 저장되었습니다.")
             st.rerun()
         except Exception as e:
-            st.error(f"❌ 저장 실패: 탭 이름이 '시트1'인지 확인하세요.")
-            st.info("시트 하단 탭 이름이 '시트1'이 아니라면 코드를 그 이름에 맞춰 수정해야 합니다.")
+            st.error(f"❌ 저장 실패: 탭 이름이 '정보'인지 확인하세요.")
+            st.info("시트 하단 탭 이름이 '정보'이 아니라면 코드를 그 이름에 맞춰 수정해야 합니다.")
 
 st.divider()
 
@@ -145,3 +145,4 @@ if user_name and input_mode == "기존 사용자 선택":
             st.dataframe(chart_df, use_container_width=True, hide_index=True)
     elif pw_check != "":
         st.error("비밀번호가 올바르지 않습니다.")
+
