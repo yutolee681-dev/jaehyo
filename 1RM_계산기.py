@@ -40,7 +40,7 @@ if input_mode == "기존 사용자 선택":
     else:
         st.warning("등록된 사용자가 없습니다. '신규 사용자 등록'을 선택해 주세요.")
 else:
-    user_name = st.text_input("이름을 입력하세요", placeholder="예: 재효, 홍길동")
+    user_name = st.text_input("이름을 입력하세요", placeholder="예: 재효, 예삐, 안뉴")
 
 exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
 exercise = st.selectbox("운동 선택", exercise_list)
@@ -124,3 +124,4 @@ if user_name:
         st.dataframe(chart_df, use_container_width=True, hide_index=True)
     else:
         st.write("등록된 기록이 없습니다.")
+
