@@ -8,7 +8,6 @@ import altair as alt
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
 # 2. 구글 시트 연결
-# Secrets에 [connections.gsheets] 설정이 정확히 되어 있어야 합니다.
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
@@ -19,13 +18,12 @@ def get_full_data():
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password'])
         
-        # 컬럼명이 일치하지 않거나 누락된 경우를 대비한 기본값 처리
-        for col in ['name', 'exercise', 'weight', 'date', 'password']:
-            if col not in raw_df.columns:
-                raw_df[col] = ""
-                
+        # password 컬럼 누락 방지
+        if 'password' not in raw_df.columns:
+            raw_df['password'] = "0000"
+            
         return raw_df
-    except Exception as e:
+    except Exception:
         return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password'])
 
 df = get_full_data()
@@ -49,7 +47,7 @@ if input_mode == "기존 사용자 선택":
         st.warning("등록된 사용자가 없습니다. '신규 사용자 등록'을 먼저 진행해 주세요.")
 else:
     user_name = st.text_input("이름을 입력하세요", placeholder="예: 재효")
-    new_user_pw = st.text_input("비밀번호 설정", type="password", help="신규 등록 시 사용할 비밀번호입니다.")
+    new_user_pw = st.text_input("비밀번호 설정 (숫자 4자리 권장)", type="password")
 
 exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
 exercise = st.selectbox("운동 선택", exercise_list)
@@ -59,7 +57,6 @@ prev_max = 0.0
 if user_name and not df.empty:
     user_ex_data = df[(df['name'] == user_name) & (df['exercise'] == exercise)]
     if not user_ex_data.empty:
-        # 중량을 숫자로 변환하여 비교
         prev_max = float(pd.to_numeric(user_ex_data['weight'], errors='coerce').max())
         st.info(f"💡 {user_name}님의 {exercise} 최고 기록: {prev_max} lbs")
 
@@ -76,30 +73,31 @@ if st.button("기록 저장하기"):
     else:
         current_date = datetime.now().strftime("%Y-%m-%d")
         
-        # 비밀번호 결정 및 타입 정규화
+        # 비밀번호 처리: 숫자로 저장하되 실패 시 문자열 유지
         if input_mode == "신규 사용자 등록":
-            final_pw = str(new_user_pw).strip()
+            try:
+                final_pw = int(new_user_pw)
+            except ValueError:
+                final_pw = str(new_user_pw).strip()
         else:
-            # 기존 사용자의 비밀번호 가져오기
             user_pw_rows = df[df['name'] == user_name]['password']
-            final_pw = str(user_pw_rows.iloc[0]).strip() if not user_pw_rows.empty else "0000"
+            # 기존 비번 로드 시에도 타입 안정성 확보
+            try:
+                final_pw = int(user_pw_rows.iloc[0]) if not user_pw_rows.empty else 0
+            except (ValueError, TypeError):
+                final_pw = str(user_pw_rows.iloc[0]).strip() if not user_pw_rows.empty else "0000"
 
         new_record = pd.DataFrame([{
-            "name": user_name, 
-            "exercise": exercise, 
-            "weight": new_weight, 
-            "date": current_date, 
-            "password": final_pw
+            "name": user_name, "exercise": exercise, "weight": new_weight, 
+            "date": current_date, "password": final_pw
         }])
         
-        # 데이터 업데이트 (기존 동일 종목 기록 제거 후 신규 추가)
         if not df.empty:
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
         else:
             updated_df = new_record
         
         try:
-            # 컬럼 순서 고정 및 저장
             updated_df = updated_df[['name', 'exercise', 'weight', 'date', 'password']]
             conn.update(worksheet="sheet1", data=updated_df)
             
@@ -111,7 +109,6 @@ if st.button("기록 저장하기"):
             st.rerun()
         except Exception as e:
             st.error(f"❌ 저장 실패! 실제 에러: {e}")
-            st.info("구글 시트 탭 이름이 'sheet1'인지 확인하고, Secrets 설정을 다시 점검해 주세요.")
 
 st.divider()
 
@@ -125,18 +122,24 @@ if new_weight > 0:
             calc_w = round((new_weight * p / 100) / 2.5) * 2.5
             st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
-# --- 7. 개인 기록 대시보드 (비밀번호 검증 강화) ---
+# --- 7. 개인 기록 대시보드 (비밀번호 비교 강화) ---
 if user_name and input_mode == "기존 사용자 선택":
     st.divider()
     st.subheader(f"🏆 {user_name}님의 개인 기록")
     pw_check = st.text_input("비밀번호 입력", type="password", key="auth_check")
     
-    # 해당 사용자의 데이터 확인
     user_rows = df[df['name'] == user_name]
     
     if not user_rows.empty:
-        # 데이터 타입 차이(숫자 vs 문자)를 해결하기 위해 양쪽 모두 str() 처리 및 공백 제거
-        stored_pw = str(user_rows.iloc[0]['password']).strip()
+        # 핵심 해결책: 시트의 값(숫자/실수/문자)을 모두 문자열로 변환하여 비교
+        # float로 읽힐 경우 '1111.0'이 될 수 있으므로 int로 먼저 변환 시도 후 str 처리
+        try:
+            raw_stored_pw = user_rows.iloc[0]['password']
+            # 숫자인 경우 소수점을 떼기 위해 int -> str 순서로 변환
+            stored_pw = str(int(float(raw_stored_pw))).strip()
+        except (ValueError, TypeError):
+            stored_pw = str(user_rows.iloc[0]['password']).strip()
+            
         input_pw = str(pw_check).strip()
         
         if pw_check != "" and input_pw == stored_pw:
