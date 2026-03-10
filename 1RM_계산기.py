@@ -72,7 +72,6 @@ if st.button("기록 저장하기"):
         new_record = pd.DataFrame([{"name": user_name, "exercise": exercise, "weight": new_weight, "date": current_date}])
         
         if not df.empty:
-            # 같은 사용자-같은 종목의 기존 데이터는 제외하고 업데이트
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
         else:
             updated_df = new_record
@@ -83,44 +82,37 @@ if st.button("기록 저장하기"):
 
 st.divider()
 
-# --- 6. 강도별 중량 계산 및 그래프 출력 ---
+# --- 6. 강도별 가이드 (그래프 제외, 메트릭만 표시) ---
 if new_weight > 0:
     st.subheader(f"📊 {exercise} 강도별 가이드")
     
     target_percents = [50, 60, 70, 75, 80, 85, 90, 95, 100]
-    calc_data = []
-
-    for p in target_percents:
-        calc_w = round((new_weight * p / 100) / 2.5) * 2.5
-        calc_data.append({"Percentage": f"{p}%", "Weight (lbs)": calc_w})
-    
-    calc_df = pd.DataFrame(calc_data)
-    st.bar_chart(data=calc_df, x="Percentage", y="Weight (lbs)", color="#ff4b4b")
-
     cols = st.columns(3)
-    for i, row in calc_df.iterrows():
-        with cols[i % 3]:
-            st.metric(label=row["Percentage"], value=f"{row['Weight (lbs)']} lbs")
 
-# --- 7. [신규 추가] 내 전체 기록 대시보드 ---
+    for i, p in enumerate(target_percents):
+        with cols[i % 3]:
+            # 2.5lbs 단위 반올림
+            calc_w = round((new_weight * p / 100) / 2.5) * 2.5
+            st.metric(label=f"{p}%", value=f"{calc_w} lbs")
+
+# --- 7. 내 전체 기록 대시보드 ---
 if user_name:
     st.divider()
-    st.subheader(f"🏆 {user_name}님의 종목별 1RM 현황")
+    st.subheader(f"🏆 {user_name}님의 종목별 최고 기록")
     
-    # 내 이름으로 된 데이터만 필터링
     my_data = df[df['name'] == user_name].copy()
     
     if not my_data.empty:
-        # 가독성을 위해 컬럼명 변경 및 표시
+        # 가독성을 위해 데이터 정렬 및 표시
         display_df = my_data[['exercise', 'weight', 'date']].sort_values(by='weight', ascending=False)
         display_df.columns = ['종목', '기록(lbs)', '최근 업데이트']
         
-        # 표로 보여주기
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
-        
-        # 내 기록을 한눈에 보는 가로 바 차트
+        # 전체 기록 요약 차트 (이게 훨씬 유용하죠!)
         st.bar_chart(data=display_df, x="종목", y="기록(lbs)", color="#29b5e8")
+        
+        # 표로도 깔끔하게 표시
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         st.write("아직 등록된 기록이 없습니다.")
 
-st.info("💡 이름을 선택하면 하단에서 본인의 모든 기록을 한눈에 볼 수 있습니다.")
+st.info("💡 이름을 선택하면 하단에서 본인의 전체 기록을 확인할 수 있습니다.")
