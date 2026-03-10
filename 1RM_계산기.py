@@ -26,18 +26,17 @@ df = get_full_data()
 st.title("🏋️ 1RM을 기억해!!")
 
 # --- 3. 사용자 인증 및 개인 기록 대시보드 ---
-with st.container(): # 컨테이너로 감싸서 레이아웃을 그룹화
+with st.container():
     st.subheader("👤 사용자 인증 및 기록 확인")
     
-    # 상단 레이아웃 2컬럼 구성
     top_col1, top_col2 = st.columns([1, 1])
     
     with top_col1:
         input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
-            selected_name = st.selectbox("이름 선택", ["선택하세요"] + user_list, label_visibility="collapsed")
-            user_name = selected_name if selected_name != "선택하세요" else ""
+            user_name = st.selectbox("이름 선택", ["선택하세요"] + user_list, label_visibility="collapsed")
+            if user_name == "선택하세요": user_name = ""
         else:
             user_name = st.text_input("이름 입력", placeholder="예: 재효", label_visibility="collapsed")
 
@@ -46,13 +45,20 @@ with st.container(): # 컨테이너로 감싸서 레이아웃을 그룹화
 
     with top_col2:
         if user_name:
-            # 라벨을 숨겨서 높이를 맞춤
-            pw_input = st.text_input("비밀번호", type="password", key="auth_main", placeholder="비밀번호 입력")
+            # ✨ 핵심: key에 user_name을 포함시켜 이름이 바뀔 때마다 입력창을 강제 초기화합니다.
+            pw_input = st.text_input(
+                "비밀번호", 
+                type="password", 
+                key=f"pw_{user_name}", # 이름별로 고유 키 생성
+                placeholder="비밀번호 입력",
+                label_visibility="collapsed"
+            )
             
             user_rows = df[df['name'] == user_name]
             if not user_rows.empty:
                 try:
                     raw_pw = user_rows.iloc[0]['password']
+                    # 시트 데이터가 숫자/문자 섞여있어도 안전하게 처리
                     stored_pw = str(int(float(raw_pw))).strip()
                 except:
                     stored_pw = str(user_rows.iloc[0]['password']).strip()
@@ -63,9 +69,7 @@ with st.container(): # 컨테이너로 감싸서 레이아웃을 그룹화
                 elif pw_input != "":
                     st.error("❌ 비밀번호 불일치")
 
-# 인증 성공 시 차트 출력 (여백 조정)
 if is_auth:
-    st.write("") # 미세 여백
     my_data = df[df['name'] == user_name].copy()
     chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
     chart_df.columns = ['종목', '기록']
@@ -101,7 +105,6 @@ if user_name and (input_mode == "신규 등록" or is_auth):
                 calc_w = round((current_pr * p / 100) / 2.5) * 2.5
                 st.metric(label=f"{p}%", value=f"{calc_w} lbs")
     
-    st.write("")
     st.divider()
     
     # 🏋️ 새로운 기록 저장
@@ -113,10 +116,9 @@ if user_name and (input_mode == "신규 등록" or is_auth):
     
     with save_col2:
         if input_mode == "신규 등록":
-            new_user_pw = st.text_input("비번 설정 (4자리)", type="password")
+            new_user_pw = st.text_input("비번 설정 (4자리)", type="password", key="new_pw_input")
         else:
-            st.write("") # 높이 맞춤용
-            st.write(f"📅 기록일: {datetime.now().strftime('%Y-%m-%d')}")
+            st.info(f"📅 기록일: {datetime.now().strftime('%Y-%m-%d')}")
 
     if st.button("🏋️ 새로운 1RM 저장하기", use_container_width=True):
         if new_weight <= 0:
@@ -131,7 +133,7 @@ if user_name and (input_mode == "신규 등록" or is_auth):
             try:
                 conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password']])
                 st.balloons()
-                st.success("기록이 성공적으로 저장되었습니다!")
+                st.success("기록이 저장되었습니다!")
                 st.rerun()
             except Exception as e:
                 st.error(f"저장 실패: {e}")
