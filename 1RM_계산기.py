@@ -45,7 +45,7 @@ if input_mode == "기존 사용자 선택":
         st.warning("등록된 사용자가 없습니다. '신규 사용자 등록'을 선택해 주세요.")
 else:
     # value 대신 placeholder를 사용해 흐린 글씨 표시
-    user_name = st.text_input("이름을 입력하세요", placeholder="예: 재효, 홍길동")
+    user_name = st.text_input("이름을 입력하세요", placeholder="예: 재효, 안뉴")
 
 # 운동 종목 선택
 exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
@@ -114,3 +114,4 @@ if new_weight > 0:
             st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
 st.info("💡 이름을 선택하면 본인의 과거 기록을 자동으로 불러옵니다.")
+
