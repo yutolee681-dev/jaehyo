@@ -7,7 +7,8 @@ import altair as alt
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
-# 2. 구글 시트 연결 (연결 자체에 문제가 있다면 secrets.toml 확인 필요)
+# 2. 구글 시트 연결
+# Secrets에 [connections.gsheets] 설정이 정확히 되어 있어야 합니다.
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
@@ -18,13 +19,13 @@ def get_full_data():
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password'])
         
-        # password 컬럼이 시트에는 있는데 읽어올 때 누락되는 경우를 방지
-        if 'password' not in raw_df.columns:
-            raw_df['password'] = "0000"
-            
+        # 컬럼명이 일치하지 않거나 누락된 경우를 대비한 기본값 처리
+        for col in ['name', 'exercise', 'weight', 'date', 'password']:
+            if col not in raw_df.columns:
+                raw_df[col] = ""
+                
         return raw_df
     except Exception as e:
-        # 읽기 실패 시 빈 데이터프레임 반환 (로그 확인용 에러 노출 가능)
         return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password'])
 
 df = get_full_data()
@@ -75,30 +76,31 @@ if st.button("기록 저장하기"):
     else:
         current_date = datetime.now().strftime("%Y-%m-%d")
         
-        # 비밀번호 결정 로직
+        # 비밀번호 결정 및 타입 정규화
         if input_mode == "신규 사용자 등록":
-            final_pw = str(new_user_pw)
+            final_pw = str(new_user_pw).strip()
         else:
-            # 기존 비번 로드
+            # 기존 사용자의 비밀번호 가져오기
             user_pw_rows = df[df['name'] == user_name]['password']
-            final_pw = str(user_pw_rows.iloc[0]) if not user_pw_rows.empty else "0000"
+            final_pw = str(user_pw_rows.iloc[0]).strip() if not user_pw_rows.empty else "0000"
 
         new_record = pd.DataFrame([{
-            "name": user_name, "exercise": exercise, "weight": new_weight, 
-            "date": current_date, "password": final_pw
+            "name": user_name, 
+            "exercise": exercise, 
+            "weight": new_weight, 
+            "date": current_date, 
+            "password": final_pw
         }])
         
-        # 업데이트 데이터 구성 (기존 동일 종목 기록 제거 후 신규 추가)
+        # 데이터 업데이트 (기존 동일 종목 기록 제거 후 신규 추가)
         if not df.empty:
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
         else:
             updated_df = new_record
         
         try:
-            # 시트의 A~E열 순서와 일치하도록 고정
+            # 컬럼 순서 고정 및 저장
             updated_df = updated_df[['name', 'exercise', 'weight', 'date', 'password']]
-            
-            # 🔴 핵심: worksheet 이름을 '정보'로 명시
             conn.update(worksheet="sheet1", data=updated_df)
             
             if prev_max > 0 and new_weight > prev_max:
@@ -108,9 +110,8 @@ if st.button("기록 저장하기"):
                 st.success("성공적으로 저장되었습니다.")
             st.rerun()
         except Exception as e:
-            # 에러 발생 시 단순 문구가 아닌 실제 시스템 에러 메시지(e)를 출력합니다.
             st.error(f"❌ 저장 실패! 실제 에러: {e}")
-            st.info("구글 시트의 탭 이름이 정확히 '정보'인지, 그리고 모든 컬럼 헤더가 있는지 확인하세요.")
+            st.info("구글 시트 탭 이름이 'sheet1'인지 확인하고, Secrets 설정을 다시 점검해 주세요.")
 
 st.divider()
 
@@ -124,32 +125,33 @@ if new_weight > 0:
             calc_w = round((new_weight * p / 100) / 2.5) * 2.5
             st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
-# --- 7. 개인 기록 대시보드 ---
+# --- 7. 개인 기록 대시보드 (비밀번호 검증 강화) ---
 if user_name and input_mode == "기존 사용자 선택":
     st.divider()
     st.subheader(f"🏆 {user_name}님의 개인 기록")
     pw_check = st.text_input("비밀번호 입력", type="password", key="auth_check")
     
-    # 비번 검증
-    user_pw_data = df[df['name'] == user_name]['password']
-    stored_pw = str(user_pw_data.iloc[0]) if not user_pw_data.empty else "0000"
+    # 해당 사용자의 데이터 확인
+    user_rows = df[df['name'] == user_name]
     
-    if pw_check == stored_pw:
-        st.success("🔓 인증되었습니다.")
-        my_data = df[df['name'] == user_name].copy()
-        if not my_data.empty:
-            # 차트용 데이터 정렬
-            chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
-            chart_df.columns = ['종목', '기록']
+    if not user_rows.empty:
+        # 데이터 타입 차이(숫자 vs 문자)를 해결하기 위해 양쪽 모두 str() 처리 및 공백 제거
+        stored_pw = str(user_rows.iloc[0]['password']).strip()
+        input_pw = str(pw_check).strip()
+        
+        if pw_check != "" and input_pw == stored_pw:
+            st.success("🔓 인증되었습니다.")
+            my_data = df[df['name'] == user_name].copy()
+            if not my_data.empty:
+                chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
+                chart_df.columns = ['종목', '기록']
 
-            # Altair 차트 설정 (글자 가로 고정)
-            personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8").encode(
-                x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0)),
-                y=alt.Y('기록:Q', title="중량 (lbs)")
-            ).properties(height=400)
+                personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8").encode(
+                    x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0)),
+                    y=alt.Y('기록:Q', title="중량 (lbs)")
+                ).properties(height=400)
 
-            st.altair_chart(personal_chart, use_container_width=True)
-            st.dataframe(chart_df, use_container_width=True, hide_index=True)
-    elif pw_check != "":
-        st.error("비밀번호가 일치하지 않습니다.")
-
+                st.altair_chart(personal_chart, use_container_width=True)
+                st.dataframe(chart_df, use_container_width=True, hide_index=True)
+        elif pw_check != "":
+            st.error("비밀번호가 일치하지 않습니다.")
