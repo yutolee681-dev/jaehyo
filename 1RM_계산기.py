@@ -30,8 +30,7 @@ df = get_full_data()
 
 st.title("🏋️ 1RM을 기억해")
 
-# --- [레이아웃 변경] 3. 실시간 박스 랭킹판 (가장 먼저 노출) ---
-# 로그인을 안 해도 어떤 종목의 랭킹인지 고를 수 있게 상단 배치
+# --- 3. [최상단 배치] 실시간 박스 랭킹판 ---
 selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
@@ -47,8 +46,7 @@ with st.expander(f"🔥 {selected_rank_exercise} 박스 리더보드 (확인하�
             else:
                 for i, row in enumerate(sorted_data.itertuples(), 1):
                     medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
-                    # '나' 강조 로직은 아래 인증 섹션 이후 변수를 사용하므로 여기서는 일반 출력 후 
-                    # 아래에서 인증되면 재출력하거나 심플하게 유지합니다.
+                    # 로그인 시 '나' 강조 로직은 뒤에서 정의되는 user_name을 활용해 UI를 구성합니다.
                     st.markdown(f"{medal} **{row.name}** : `{row.weight} lbs`  ")
                     st.caption(f"기록일: {row.date}")
 
@@ -126,7 +124,6 @@ st.divider()
 # --- 5. 강도별 가이드 및 기록 저장 ---
 if user_name and is_auth:
     st.subheader("💪 오늘의 기록 업데이트")
-    # 랭킹에서 선택한 종목을 기본값으로 연동
     save_exercise = st.selectbox("저장할 종목", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
     ex_record = df[(df['name'] == user_name) & (df['exercise'] == save_exercise)]
@@ -178,4 +175,36 @@ if user_name and is_auth:
             except Exception as e:
                 st.error(f"저장 실패: {e}")
 
-
+# --- 6. 🛠️ 관리자 모드 (재효 전용) ---
+st.divider()
+with st.expander("🛠️ 시스템 관리자 도구"):
+    admin_pw = st.text_input("관리자 인증키", type="password", key="admin_key")
+    
+    # 관리자 인증 (예시 키: 1991)
+    if admin_pw == "1991":
+        st.success("Admin 인증 완료. 데이터 제어권이 활성화되었습니다.")
+        
+        # 전체 데이터 뷰어
+        st.subheader("📊 Raw Data 현황")
+        st.dataframe(df, use_container_width=True)
+        
+        # 데이터 삭제 섹션
+        st.subheader("🗑️ 데이터 정리")
+        target_name = st.selectbox("삭제할 사용자 선택", ["선택하세요"] + sorted(df['name'].unique().tolist()))
+        
+        if target_name != "선택하세요":
+            user_data = df[df['name'] == target_name]
+            st.warning(f"경고: {target_name}님의 모든 기록이 삭제됩니다.")
+            st.table(user_data[['exercise', 'weight', 'date']])
+            
+            if st.button(f"🔥 {target_name} 데이터 영구 삭제"):
+                updated_df = df[df['name'] != target_name]
+                try:
+                    conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password', 'gender']])
+                    st.error("삭제가 완료되었습니다. 데이터 동기화를 위해 새로고침합니다.")
+                    time.sleep(1.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"데이터 반영 오류: {e}")
+    elif admin_pw:
+        st.error("접근 권한이 없습니다.")
