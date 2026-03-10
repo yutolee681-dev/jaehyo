@@ -8,8 +8,12 @@ import time
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
-# --- [수정] 변수 사전 정의 (에러 방지용 최상단 배치) ---
-exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
+# --- [업데이트] 종목 리스트 확장 ---
+exercise_list = [
+    "Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", 
+    "Deadlift", "Back Squat", "Shoulder Press",
+    "Thruster", "Bench Press", "Jerk", "Overhead Squat"
+]
 
 # 2. 구글 시트 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -30,23 +34,22 @@ df = get_full_data()
 
 st.title("🏋️ 1RM을 기억해")
 
-# --- 3. [최상단 배치] 실시간 박스 랭킹판 ---
+# --- 3. [최상단 배치] 실시간 박스 랭킹판 (TOP 5) ---
 selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 
-with st.expander(f"🔥 {selected_rank_exercise} 박스 리더보드 (TOP5)", expanded=True):
+with st.expander(f"🔥 {selected_rank_exercise} TOP 5 리더보드", expanded=True):
     if not rank_df.empty:
         tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
         
         def display_rank(data):
-            sorted_data = data.sort_values(by='weight', ascending=False).head(10)
+            sorted_data = data.sort_values(by='weight', ascending=False).head(5)
             if sorted_data.empty:
                 st.write("아직 기록이 없습니다.")
             else:
                 for i, row in enumerate(sorted_data.itertuples(), 1):
                     medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
-                    # 로그인 시 '나' 강조 로직은 뒤에서 정의되는 user_name을 활용해 UI를 구성합니다.
                     st.markdown(f"{medal} **{row.name}** : `{row.weight} lbs`  ")
                     st.caption(f"기록일: {row.date}")
 
@@ -114,7 +117,7 @@ if is_auth and not df.empty:
         chart_df.columns = ['종목', '기록']
         st.write(f"📊 {user_name}님의 종목별 1RM 현황")
         personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8").encode(
-            x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0, title=None)),
+            x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=45, title=None)),
             y=alt.Y('기록:Q', title="중량 (lbs)")
         ).properties(height=200)
         st.altair_chart(personal_chart, use_container_width=True)
@@ -175,20 +178,16 @@ if user_name and is_auth:
             except Exception as e:
                 st.error(f"저장 실패: {e}")
 
-# --- 6. 🛠️ 관리자 모드 (재효 전용) ---
+# --- 6. 🛠️ 관리자 모드 (비밀번호: 5207) ---
 st.divider()
 with st.expander("🛠️ 시스템 관리자 도구"):
     admin_pw = st.text_input("관리자 인증키", type="password", key="admin_key")
     
-    # 관리자 인증 
     if admin_pw == "5207":
-        st.success("Admin 인증 완료. 데이터 제어권이 활성화되었습니다.")
-        
-        # 전체 데이터 뷰어
+        st.success("Admin 인증 완료.")
         st.subheader("📊 Raw Data 현황")
         st.dataframe(df, use_container_width=True)
         
-        # 데이터 삭제 섹션
         st.subheader("🗑️ 데이터 정리")
         target_name = st.selectbox("삭제할 사용자 선택", ["선택하세요"] + sorted(df['name'].unique().tolist()))
         
@@ -201,13 +200,10 @@ with st.expander("🛠️ 시스템 관리자 도구"):
                 updated_df = df[df['name'] != target_name]
                 try:
                     conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password', 'gender']])
-                    st.error("삭제가 완료되었습니다. 데이터 동기화를 위해 새로고침합니다.")
+                    st.error("삭제 완료. 새로고침합니다.")
                     time.sleep(1.5)
                     st.rerun()
                 except Exception as e:
                     st.error(f"데이터 반영 오류: {e}")
     elif admin_pw:
         st.error("접근 권한이 없습니다.")
-
-
-
