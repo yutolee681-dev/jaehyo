@@ -41,16 +41,29 @@ def get_full_data():
 
 df = get_full_data()
 
-# --- [추가] 세션 상태 초기화 ---
+# 세션 상태 초기화
 if 'is_auth' not in st.session_state:
     st.session_state.is_auth = False
     st.session_state.user_name = ""
     st.session_state.user_gender = "남성"
 
+# --- 앵커 설정 ---
 st.markdown("<div id='link_to_top'></div>", unsafe_allow_html=True)
 st.title("🏋️ 1RM을 기억해")
 
-# --- 3. 실시간 박스 랭킹판 (TOP 5) ---
+# --- 3. [레이아웃 조정] 최상단 환영 메시지 및 로그아웃 ---
+if st.session_state.is_auth:
+    col_welcome, col_logout = st.columns([3, 1])
+    with col_welcome:
+        st.subheader(f"👋 {st.session_state.user_name}님")
+    with col_logout:
+        if st.button("로그아웃", use_container_width=True):
+            st.session_state.is_auth = False
+            st.session_state.user_name = ""
+            st.rerun()
+    st.divider()
+
+# --- 4. 실시간 박스 랭킹판 (TOP 5) ---
 selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 
@@ -70,7 +83,7 @@ with st.expander(f"🔥 {selected_rank_exercise} TOP 5 리더보드", expanded=T
 
 st.divider()
 
-# --- 4. 사용자 인증 섹션 (개선됨) ---
+# --- 5. 사용자 인증 섹션 (로그인 전일 때만 노출) ---
 if not st.session_state.is_auth:
     with st.container():
         st.subheader("👤 사용자 인증")
@@ -94,39 +107,29 @@ if not st.session_state.is_auth:
                         st.session_state.user_gender = user_rows.iloc[0]['gender']
                         st.rerun()
                     else:
-                        st.error("비밀번호가 틀렸습니다.")
+                        st.error("비밀번호 불일치")
         else:
             reg_col1, reg_col2 = st.columns(2)
             new_name = reg_col1.text_input("새 이름", placeholder="예: 재효")
             new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
-            new_pw = st.text_input("비밀번호 설정 (4자리)", type="password")
-            if st.button("신규 등록 및 로그인", use_container_width=True):
+            new_pw = st.text_input("비밀번호 설정", type="password")
+            if st.button("등록 및 로그인", use_container_width=True):
                 if new_name and new_pw:
                     st.session_state.is_auth = True
                     st.session_state.user_name = new_name
                     st.session_state.user_gender = new_gender
-                    st.session_state.temp_pw = new_pw # 첫 저장 시 사용
+                    st.session_state.temp_pw = new_pw
                     st.rerun()
-                else:
-                    st.warning("이름과 비밀번호를 입력해주세요.")
-else:
-    # 로그인 성공 시 화면
-    st.subheader(f"👋 {st.session_state.user_name}님, 환영합니다!")
-    if st.button("로그아웃", use_container_width=False):
-        st.session_state.is_auth = False
-        st.session_state.user_name = ""
-        st.rerun()
 
-# --- 5. 개인 차트 (가로형 모바일 최적화) ---
+# --- 6. 개인 차트 & 기록 업데이트 (로그인 성공 시 노출) ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     if not my_data.empty:
-        st.divider()
         chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
         chart_df['exercise'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         chart_df.columns = ['종목', '기록']
         
-        st.write(f"📊 {st.session_state.user_name}님의 1RM 현황")
+        st.write(f"📊 {st.session_state.user_name}님의 현황")
         personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8", cornerRadiusEnd=5).encode(
             y=alt.Y('종목:N', sort='-x', title=None),
             x=alt.X('기록:Q', title="중량 (lbs)"),
@@ -137,9 +140,8 @@ if st.session_state.is_auth:
 
     st.divider()
 
-    # --- 6. 기록 저장 및 가이드 ---
-    st.subheader("💪 오늘의 기록 업데이트")
-    save_exercise = st.selectbox("저장할 종목", exercise_list, index=exercise_list.index(selected_rank_exercise))
+    st.subheader("💪 기록 업데이트")
+    save_exercise = st.selectbox("종목 선택", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
     ex_record = df[(df['name'] == st.session_state.user_name) & (df['exercise'] == save_exercise)]
     prev_max = float(pd.to_numeric(ex_record['weight'], errors='coerce').max()) if not ex_record.empty else 0.0
@@ -153,11 +155,11 @@ if st.session_state.is_auth:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
                 st.metric(label=f"{p}%", value=f"{calc_w}")
     
-    new_weight = st.number_input("오늘 달성 (lbs)", value=0.0, step=5.0)
-    if st.button("🏋️ 새로운 1RM 저장", use_container_width=True):
+    new_weight = st.number_input("중량 입력 (lbs)", value=0.0, step=5.0)
+    if st.button("🏋️ 1RM 저장하기", use_container_width=True):
         if new_weight > 0:
-            # 기존 기록 찾기 위한 비밀번호 확인 (신규 등록 시엔 입력한 비번 사용)
-            final_pw = str(df[df['name'] == st.session_state.user_name]['password'].iloc[0]) if not ex_record.empty else st.session_state.get('temp_pw', '0000')
+            user_data = df[df['name'] == st.session_state.user_name]
+            final_pw = str(user_data['password'].iloc[0]) if not user_data.empty else st.session_state.get('temp_pw', '0000')
             
             new_record = pd.DataFrame([{
                 "name": st.session_state.user_name, 
