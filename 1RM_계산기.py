@@ -35,7 +35,7 @@ selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exe
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 
-with st.expander(f"🔥 {selected_rank_exercise} 박스 리더보드 (확인하기)", expanded=True):
+with st.expander(f"🔥 {selected_rank_exercise} 박스 리더보드 (TOP5)", expanded=True):
     if not rank_df.empty:
         tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
         
@@ -208,5 +208,6 @@ with st.expander("🛠️ 시스템 관리자 도구"):
                     st.error(f"데이터 반영 오류: {e}")
     elif admin_pw:
         st.error("접근 권한이 없습니다.")
+
 
 
