@@ -10,7 +10,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# 2. 구글 시트 연결 (실시간 데이터 로드)
+# 2. 구글 시트 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
@@ -82,7 +82,7 @@ if st.button("기록 저장하기"):
 
 st.divider()
 
-# --- 6. 강도별 가이드 (메트릭만 표시) ---
+# --- 6. 강도별 가이드 ---
 if new_weight > 0:
     st.subheader(f"📊 {exercise} 강도별 가이드")
     target_percents = [50, 60, 70, 75, 80, 85, 90, 95, 100]
@@ -92,7 +92,7 @@ if new_weight > 0:
             calc_w = round((new_weight * p / 100) / 2.5) * 2.5
             st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
-# --- 7. 내 전체 기록 대시보드 (가로 차트로 수정) ---
+# --- 7. 내 전체 기록 대시보드 (세로 차트 유지 + 글자 가로 고정) ---
 if user_name:
     st.divider()
     st.subheader(f"🏆 {user_name}님의 종목별 최고 기록")
@@ -100,14 +100,14 @@ if user_name:
     my_data = df[df['name'] == user_name].copy()
     
     if not my_data.empty:
-        display_df = my_data[['exercise', 'weight', 'date']].sort_values(by='weight', ascending=True) # 중량순 정렬
+        # 데이터 정리
+        display_df = my_data[['exercise', 'weight', 'date']].sort_values(by='weight', ascending=False)
         display_df.columns = ['종목', '기록(lbs)', '최근 업데이트']
         
-        # [핵심] 가로 바 차트(horizontal) 적용을 위해 Altair 차트 활용
-        # st.bar_chart에서 가로/세로는 데이터 형태에 따라 자동 결정되지만, 
-        # 명확하게 하기 위해 아래 표 바로 위에 시각화합니다.
-        st.bar_chart(data=display_df, x="기록(lbs)", y="종목", color="#29b5e8")
+        # [핵심 수정] 원래 쓰시던 세로 막대 차트로 복구 (x=종목, y=기록)
+        # 텍스트가 꺾이지 않도록 충분한 가로 너비를 사용하도록 설정합니다.
+        st.bar_chart(data=display_df, x="종목", y="기록(lbs)", color="#29b5e8")
         
-        st.dataframe(display_df.sort_values(by='기록(lbs)', ascending=False), use_container_width=True, hide_index=True)
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         st.write("아직 등록된 기록이 없습니다.")
