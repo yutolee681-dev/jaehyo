@@ -144,26 +144,39 @@ if user_name and is_auth:
             except Exception as e:
                 st.error(f"저장 실패: {e}")
 
-# --- 5. 실시간 박스 랭킹판 (인증 여부와 상관없이 출력) ---
+# --- 5. 실시간 박스 랭킹판 (상시 노출) ---
 st.divider()
 st.subheader(f"🏆 {exercise} 실시간 랭킹")
 
-# 랭킹 데이터 필터링 (현재 선택된 혹은 기본 종목 기준)
 rank_df = df[df['exercise'] == exercise].copy()
 
 if not rank_df.empty:
     tab_m, tab_f = st.tabs(["♂️ 남성부", "♀️ 여성부"])
     
     def display_rank(data):
-        # 중량 순으로 정렬 후 상위 5명
-        sorted_data = data.sort_values(by='weight', ascending=False).head(5)
+        # 중량 순으로 정렬 후 상위 10명까지 확대 (더 많은 사람 노출)
+        sorted_data = data.sort_values(by='weight', ascending=False).head(10)
+        
         if sorted_data.empty:
             st.write("아직 기록이 없습니다.")
         else:
             for i, row in enumerate(sorted_data.itertuples(), 1):
                 medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
-                st.markdown(f"{medal} **{row.name}** : `{row.weight} lbs`  ")
-                st.caption(f"기록일: {row.date}")
+                
+                # ✨ 로그인한 사용자의 이름이 랭킹에 있다면 강조!
+                is_me = (is_auth and row.name == user_name)
+                
+                name_display = f"**{row.name} (나)**" if is_me else f"{row.name}"
+                bg_style = "background-color: #f0f8ff; border-radius: 5px; padding: 5px;" if is_me else ""
+                
+                # 가독성을 높인 랭킹 카드 형태
+                st.markdown(f"""
+                <div style="{bg_style}">
+                    {medal} {name_display} : <b>{row.weight} lbs</b> <br>
+                    <small style="color:gray;">기록일: {row.date}</small>
+                </div>
+                """, unsafe_allow_html=True)
+                st.write("")
 
     with tab_m:
         display_rank(rank_df[rank_df['gender'] == "남성"])
