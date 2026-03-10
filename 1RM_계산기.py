@@ -25,111 +25,113 @@ df = get_full_data()
 
 st.title("🏋️ 1RM을 기억해!!")
 
-# --- 3. 사용자 인증 및 개인 기록 대시보드 (최상단) ---
-st.subheader("👤 사용자 인증 및 기록 확인")
-user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
+# --- 3. 사용자 인증 및 개인 기록 대시보드 ---
+with st.container(): # 컨테이너로 감싸서 레이아웃을 그룹화
+    st.subheader("👤 사용자 인증 및 기록 확인")
+    
+    # 상단 레이아웃 2컬럼 구성
+    top_col1, top_col2 = st.columns([1, 1])
+    
+    with top_col1:
+        input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
+        if input_mode == "기존 사용자":
+            user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
+            selected_name = st.selectbox("이름 선택", ["선택하세요"] + user_list, label_visibility="collapsed")
+            user_name = selected_name if selected_name != "선택하세요" else ""
+        else:
+            user_name = st.text_input("이름 입력", placeholder="예: 재효", label_visibility="collapsed")
 
-col_login, col_pw = st.columns([1, 1])
+    is_auth = False
+    stored_pw = "0000"
 
-with col_login:
-    input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
-    if input_mode == "기존 사용자":
-        selected_name = st.selectbox("이름 선택", ["선택하세요"] + user_list)
-        user_name = selected_name if selected_name != "선택하세요" else ""
-    else:
-        user_name = st.text_input("이름 입력", placeholder="예: 재효")
-
-is_auth = False
-stored_pw = "0000"
-
-with col_pw:
-    if user_name:
-        pw_input = st.text_input("비밀번호", type="password", key="auth_main")
-        user_rows = df[df['name'] == user_name]
-        
-        if not user_rows.empty:
-            try:
-                raw_pw = user_rows.iloc[0]['password']
-                stored_pw = str(int(float(raw_pw))).strip()
-            except:
-                stored_pw = str(user_rows.iloc[0]['password']).strip()
+    with top_col2:
+        if user_name:
+            # 라벨을 숨겨서 높이를 맞춤
+            pw_input = st.text_input("비밀번호", type="password", key="auth_main", placeholder="비밀번호 입력")
             
-            if pw_input.strip() == stored_pw:
-                is_auth = True
-                st.success(f"🔓 {user_name}님 확인됨")
-            elif pw_input != "":
-                st.error("비밀번호 불일치")
+            user_rows = df[df['name'] == user_name]
+            if not user_rows.empty:
+                try:
+                    raw_pw = user_rows.iloc[0]['password']
+                    stored_pw = str(int(float(raw_pw))).strip()
+                except:
+                    stored_pw = str(user_rows.iloc[0]['password']).strip()
+                
+                if pw_input.strip() == stored_pw:
+                    is_auth = True
+                    st.success(f"✅ {user_name}님 인증 완료")
+                elif pw_input != "":
+                    st.error("❌ 비밀번호 불일치")
 
-# 인증 성공 시 차트 출력
+# 인증 성공 시 차트 출력 (여백 조정)
 if is_auth:
+    st.write("") # 미세 여백
     my_data = df[df['name'] == user_name].copy()
     chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
     chart_df.columns = ['종목', '기록']
     
     personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8").encode(
-        x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0)),
+        x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0, title=None)),
         y=alt.Y('기록:Q', title="중량 (lbs)")
-    ).properties(height=250)
+    ).properties(height=300)
+    
     st.altair_chart(personal_chart, use_container_width=True)
 
 st.divider()
 
-# --- 4. 강도별 가이드 및 기록 입력 (중단/하단) ---
+# --- 4. 강도별 가이드 및 기록 입력 ---
 if user_name and (input_mode == "신규 등록" or is_auth):
     st.subheader("💪 오늘의 운동 및 가이드")
     
     exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
     exercise = st.selectbox("종목 선택", exercise_list)
     
-    # 해당 종목 기존 기록 확인
     ex_record = df[(df['name'] == user_name) & (df['exercise'] == exercise)]
     current_pr = float(pd.to_numeric(ex_record['weight'], errors='coerce').max()) if not ex_record.empty else 0.0
     
-    # 📊 강도별 가이드 (3열 구성)
     if current_pr > 0:
-        st.info(f"💡 현재 {exercise} PR: {current_pr} lbs")
-        st.write(f"🔢 **{exercise}** 강도별 계산기")
+        st.info(f"💡 현재 {exercise} 최고 기록: **{current_pr} lbs**")
         
-        # 3열 배치를 위한 컬럼 생성
+        # 3열 구성 강도 가이드
         percents = [50, 60, 70, 75, 80, 85, 90, 95, 100]
-        g_cols = st.columns(3) # 3줄(3열)로 설정
+        g_cols = st.columns(3)
         
         for i, p in enumerate(percents):
-            with g_cols[i % 3]: # 인덱스를 3으로 나눈 나머지로 열 배치
+            with g_cols[i % 3]:
                 calc_w = round((current_pr * p / 100) / 2.5) * 2.5
                 st.metric(label=f"{p}%", value=f"{calc_w} lbs")
     
+    st.write("")
     st.divider()
     
-    # 🏋️ 새로운 기록 저장 섹션
+    # 🏋️ 새로운 기록 저장
     st.subheader("📝 새로운 기록 저장")
-    new_weight = st.number_input("오늘 달성한 기록 (lbs)", value=0.0, step=5.0)
+    save_col1, save_col2 = st.columns(2)
     
-    if input_mode == "신규 등록":
-        new_user_pw = st.text_input("새 비밀번호 설정 (숫자 4자리)", type="password")
+    with save_col1:
+        new_weight = st.number_input("오늘 달성 기록 (lbs)", value=0.0, step=5.0)
+    
+    with save_col2:
+        if input_mode == "신규 등록":
+            new_user_pw = st.text_input("비번 설정 (4자리)", type="password")
+        else:
+            st.write("") # 높이 맞춤용
+            st.write(f"📅 기록일: {datetime.now().strftime('%Y-%m-%d')}")
 
-    if st.button("🏋️ 기록 저장하기"):
+    if st.button("🏋️ 새로운 1RM 저장하기", use_container_width=True):
         if new_weight <= 0:
             st.error("중량을 입력해주세요.")
         else:
             current_date = datetime.now().strftime("%Y-%m-%d")
             final_save_pw = new_user_pw.strip() if input_mode == "신규 등록" else stored_pw
             
-            new_record = pd.DataFrame([{
-                "name": user_name, 
-                "exercise": exercise, 
-                "weight": new_weight, 
-                "date": current_date, 
-                "password": final_save_pw
-            }])
-            
-            # 기존 데이터 합치기 (동일 종목 업데이트)
+            new_record = pd.DataFrame([{"name": user_name, "exercise": exercise, "weight": new_weight, "date": current_date, "password": final_save_pw}])
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
             
             try:
                 conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password']])
                 st.balloons()
-                st.success("성공적으로 저장되었습니다!")
+                st.success("기록이 성공적으로 저장되었습니다!")
                 st.rerun()
             except Exception as e:
                 st.error(f"저장 실패: {e}")
