@@ -2,15 +2,16 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
+import altair as alt # 차트 세부 설정을 위한 라이브러리
 
 # 1. 페이지 설정
 st.set_page_config(
-    page_title="1RM을 기억해!!", 
+    page_title="CrossFit 1RM Tracker", 
     page_icon="🏋️", 
     layout="centered"
 )
 
-# 2. 구글 시트 연결
+# 2. 구글 시트 연결 설정
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 try:
@@ -20,7 +21,7 @@ except Exception:
 
 st.title("🏋️ 1RM을 기억해!!")
 
-# --- 3. 사용자 정보 섹션 ---
+# --- 3. 사용자 정보 섹션 (검증 및 Placeholder) ---
 st.subheader("👤 사용자 정보")
 
 if not df.empty and 'name' in df.columns:
@@ -52,7 +53,7 @@ if user_name:
         last_record = existing_data.iloc[-1]
         default_weight = float(last_record['weight'])
         last_date = last_record.get('date', '기록 없음')
-        st.success(f"✅ {user_name}님의 기존 기록: {default_weight} lbs (최근 업데이트: {last_date})")
+        st.success(f"✅ {user_name}님의 기존 기록: {default_weight} lbs (업데이트: {last_date})")
     else:
         default_weight = 0.0
         st.info(f"'{user_name}'님의 {exercise} 기록이 없습니다.")
@@ -64,12 +65,17 @@ new_weight = st.number_input(f"{exercise} 1RM 입력 (lbs)", value=default_weigh
 
 if st.button("기록 저장하기"):
     if not user_name:
-        st.error("⚠️ 이름을 입력하거나 선택해 주세요!")
+        st.error("⚠️ 이름을 먼저 입력하거나 선택해야 저장이 가능합니다!")
     elif new_weight <= 0:
-        st.error("⚠️ 중량을 입력해 주세요!")
+        st.error("⚠️ 0보다 큰 중량을 입력해 주세요!")
     else:
         current_date = datetime.now().strftime("%Y-%m-%d")
-        new_record = pd.DataFrame([{"name": user_name, "exercise": exercise, "weight": new_weight, "date": current_date}])
+        new_record = pd.DataFrame([{
+            "name": user_name, 
+            "exercise": exercise, 
+            "weight": new_weight,
+            "date": current_date
+        }])
         
         if not df.empty:
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
@@ -78,11 +84,12 @@ if st.button("기록 저장하기"):
         
         conn.update(worksheet="시트1", data=updated_df)
         st.balloons()
+        st.success(f"저장 완료! (날짜: {current_date})")
         st.rerun()
 
 st.divider()
 
-# --- 6. 강도별 가이드 ---
+# --- 6. 강도별 가이드 (숫자 메트릭) ---
 if new_weight > 0:
     st.subheader(f"📊 {exercise} 강도별 가이드")
     target_percents = [50, 60, 70, 75, 80, 85, 90, 95, 100]
@@ -92,7 +99,7 @@ if new_weight > 0:
             calc_w = round((new_weight * p / 100) / 2.5) * 2.5
             st.metric(label=f"{p}%", value=f"{calc_w} lbs")
 
-# --- 7. 내 전체 기록 대시보드 (세로 차트 유지 + 글자 가로 고정) ---
+# --- 7. 내 전체 기록 대시보드 (글자 가로 고정 차트) ---
 if user_name:
     st.divider()
     st.subheader(f"🏆 {user_name}님의 종목별 최고 기록")
@@ -100,14 +107,20 @@ if user_name:
     my_data = df[df['name'] == user_name].copy()
     
     if not my_data.empty:
-        # 데이터 정리
-        display_df = my_data[['exercise', 'weight', 'date']].sort_values(by='weight', ascending=False)
-        display_df.columns = ['종목', '기록(lbs)', '최근 업데이트']
+        # 차트용 데이터 정리
+        chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
+        chart_df.columns = ['종목', '기록']
+
+        # [Altair 차트 설정] labelAngle=0 설정으로 글자를 가로로 고정합니다.
+        personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8").encode(
+            x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0, title="운동 종목")),
+            y=alt.Y('기록:Q', title="중량 (lbs)"),
+            tooltip=['종목', '기록']
+        ).properties(height=400)
+
+        st.altair_chart(personal_chart, use_container_width=True)
         
-        # [핵심 수정] 원래 쓰시던 세로 막대 차트로 복구 (x=종목, y=기록)
-        # 텍스트가 꺾이지 않도록 충분한 가로 너비를 사용하도록 설정합니다.
-        st.bar_chart(data=display_df, x="종목", y="기록(lbs)", color="#29b5e8")
-        
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        # 상세 데이터 표
+        st.dataframe(chart_df, use_container_width=True, hide_index=True)
     else:
-        st.write("아직 등록된 기록이 없습니다.")
+        st.write("등록된 기록이 없습니다.")
