@@ -65,7 +65,7 @@ if st.session_state.is_auth:
 selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 
-with st.expander(f"🔥 {selected_rank_exercise} TOP 5 리더보드", expanded=True):
+with st.expander(f"🔥 {selected_rank_exercise} TOP 5", expanded=True):
     if not rank_df.empty:
         tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
         def display_rank(data):
@@ -136,25 +136,22 @@ if st.session_state.is_auth:
     ex_record = df[(df['name'] == st.session_state.user_name) & (df['exercise'] == save_exercise)]
     prev_max = float(pd.to_numeric(ex_record['weight'], errors='coerce').max()) if not ex_record.empty else 0.0
     
-    # --- [수정] 순차적 퍼센트 가이드 (세로 흐름 유지) ---
+    # --- [복구] 큼직한 글씨 & 순차적 정렬 (2열 배치) ---
     if prev_max > 0:
         st.info(f"💡 {save_exercise} 최고: **{prev_max} lbs**")
-        percents = list(range(50, 101, 5))
+        percents = list(range(50, 101, 5)) # 50, 55, ... 100
         
-        # 2열로 구성하되, 왼쪽 열에 낮은 퍼센트, 오른쪽 열에 높은 퍼센트가 오도록 배치
-        mid = (len(percents) + 1) // 2
-        left_p = percents[:mid]
-        right_p = percents[mid:]
-        
+        # 순서대로 2열로 나누기
         col1, col2 = st.columns(2)
-        with col1:
-            for p in left_p:
-                calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                st.write(f"**{p}%** : {calc_w} lbs")
-        with col2:
-            for p in right_p:
-                calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                st.write(f"**{p}%** : {calc_w} lbs")
+        for i, p in enumerate(percents):
+            calc_w = round((prev_max * p / 100) / 2.5) * 2.5
+            # 짝수(0,2,4..)는 1열, 홀수(1,3,5..)는 2열에 배치하여 순차적으로 보이게 함
+            if i % 2 == 0:
+                with col1:
+                    st.metric(label=f"{p}%", value=f"{calc_w} lb")
+            else:
+                with col2:
+                    st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
     new_weight = st.number_input("중량 입력 (lbs)", value=0.0, step=5.0)
