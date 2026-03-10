@@ -15,7 +15,6 @@ exercise_list = [
     "Thruster", "Bench Press", "Jerk", "Overhead Squat"
 ]
 
-# 차트 표시용 단축어 매핑 테이블
 rename_map = {
     "Power Clean": "P.Clean", "Squat Clean": "S.Clean",
     "Power Snatch": "P.Snatch", "Squat Snatch": "S.Snatch",
@@ -42,6 +41,8 @@ def get_full_data():
 
 df = get_full_data()
 
+# --- [추가] 앵커 설정 (맨 위로 이동용) ---
+st.markdown("<div id='link_to_top'></div>", unsafe_allow_html=True)
 st.title("🏋️ 1RM을 기억해")
 
 # --- 3. [최상단] 실시간 박스 랭킹판 (TOP 5) ---
@@ -54,7 +55,6 @@ with st.expander(f"🔥 {selected_rank_exercise} TOP 5 리더보드", expanded=T
         tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
         
         def display_rank(data):
-            # 상위 5명만 추출
             sorted_data = data.sort_values(by='weight', ascending=False).head(5)
             if sorted_data.empty:
                 st.write("아직 등록된 기록이 없습니다.")
@@ -105,7 +105,6 @@ with st.container():
                 user_gender_val = user_rows.iloc[0]['gender']
                 try:
                     raw_pw = user_rows.iloc[0]['password']
-                    # 소수점이나 공백 제거 후 문자열 처리
                     stored_pw = str(int(float(raw_pw))).strip()
                 except:
                     stored_pw = str(user_rows.iloc[0]['password']).strip()
@@ -120,12 +119,11 @@ with st.container():
                 is_auth = True
                 st.info("✨ 신규 등록 모드입니다. 기록 저장 시 자동 가입됩니다.")
 
-# 개인 차트 (인증 성공 시 노출 및 단축어 적용)
+# 개인 차트
 if is_auth and not df.empty:
     my_data = df[df['name'] == user_name].copy()
     if not my_data.empty:
         st.divider()
-        # 차트용 데이터 가공 (단축어 적용)
         chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
         chart_df['exercise'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         chart_df.columns = ['종목', '기록']
@@ -142,7 +140,6 @@ st.divider()
 # --- 5. 강도별 가이드 및 기록 저장 ---
 if user_name and is_auth:
     st.subheader("💪 오늘의 기록 업데이트")
-    # 랭킹에서 고른 종목이 기본값으로 오도록 연동
     save_exercise = st.selectbox("저장할 종목", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
     ex_record = df[(df['name'] == user_name) & (df['exercise'] == save_exercise)]
@@ -179,7 +176,6 @@ if user_name and is_auth:
                 "name": user_name, "exercise": save_exercise, "weight": new_weight, 
                 "date": current_date, "password": final_save_pw, "gender": final_gender
             }])
-            # 기존 기록 제거 후 새 기록 추가 (가장 최근 기록만 유지)
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == save_exercise))], new_record], ignore_index=True)
             
             try:
@@ -195,32 +191,19 @@ if user_name and is_auth:
             except Exception as e:
                 st.error(f"저장 중 오류 발생: {e}")
 
-# --- 6. 🛠️ 관리자 모드 (재효 전용) ---
+    # --- [추가] 인증 사용자용 맨 위로 가기 버튼 ---
+    st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer;'>🔝 랭킹 확인하러 맨 위로 가기</button></a>", unsafe_allow_html=True)
+
+# --- 6. 🛠️ 관리자 모드 ---
 st.divider()
 with st.expander("🛠️ 시스템 관리자 도구"):
     admin_pw = st.text_input("관리자 인증키", type="password", key="admin_key")
-    
     if admin_pw == "5207":
         st.success("Admin 권한 활성화됨.")
-        st.subheader("📊 전체 데이터 로드")
         st.dataframe(df, use_container_width=True)
-        
-        st.subheader("🗑️ 기록 삭제")
         target_name = st.selectbox("삭제할 사용자 선택", ["선택하세요"] + sorted(df['name'].unique().tolist()))
-        
         if target_name != "선택하세요":
-            user_data = df[df['name'] == target_name]
-            st.warning(f"{target_name}님의 모든 데이터가 표시됩니다.")
-            st.table(user_data[['exercise', 'weight', 'date']])
-            
             if st.button(f"🔥 {target_name} 데이터 완전 삭제"):
                 updated_df = df[df['name'] != target_name]
-                try:
-                    conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password', 'gender']])
-                    st.error("삭제 성공. 시스템을 새로고침합니다.")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"삭제 실패: {e}")
-    elif admin_pw:
-        st.error("접근 권한이 없습니다.")
+                conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password', 'gender']])
+                st.rerun()
