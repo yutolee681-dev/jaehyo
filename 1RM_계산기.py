@@ -38,7 +38,7 @@ rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 
 with st.expander(f"🔥 {selected_rank_exercise} 박스 리더보드 (확인하기)", expanded=True):
     if not rank_df.empty:
-        tab_m, tab_f = st.tabs(["♂️ 남성부", "♀️ 여성부"])
+        tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
         
         def display_rank(data):
             sorted_data = data.sort_values(by='weight', ascending=False).head(10)
@@ -177,3 +177,4 @@ if user_name and is_auth:
                 st.rerun()
             except Exception as e:
                 st.error(f"저장 실패: {e}")
+
