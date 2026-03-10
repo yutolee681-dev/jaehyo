@@ -28,7 +28,7 @@ def get_full_data():
 
 df = get_full_data()
 
-st.title("🏋️ 1RM을 기억해!!")
+st.title("🏋️ 1RM을 기억해")
 
 # --- [레이아웃 변경] 3. 실시간 박스 랭킹판 (가장 먼저 노출) ---
 # 로그인을 안 해도 어떤 종목의 랭킹인지 고를 수 있게 상단 배치
@@ -177,4 +177,5 @@ if user_name and is_auth:
                 st.rerun()
             except Exception as e:
                 st.error(f"저장 실패: {e}")
+
 
