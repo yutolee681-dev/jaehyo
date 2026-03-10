@@ -55,7 +55,7 @@ st.title("🏋️ 1RM을 기억해")
 if st.session_state.is_auth:
     col_welcome, col_logout = st.columns([3, 1])
     with col_welcome:
-        st.subheader(f"👋 {st.session_state.user_name}님")
+        st.subheader(f"{st.session_state.user_name}님 👋")
     with col_logout:
         if st.button("로그아웃", use_container_width=True):
             st.session_state.is_auth = False
@@ -182,3 +182,4 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
