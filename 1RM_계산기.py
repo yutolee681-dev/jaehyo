@@ -137,4 +137,18 @@ if user_name and input_mode == "기존 사용자 선택":
     if pw_check == stored_pw:
         st.success("🔓 인증되었습니다.")
         my_data = df[df['name'] == user_name].copy()
-        if not my
+        if not my_data.empty:
+            # 차트용 데이터 정렬
+            chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
+            chart_df.columns = ['종목', '기록']
+
+            # Altair 차트 설정 (글자 가로 고정)
+            personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8").encode(
+                x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0)),
+                y=alt.Y('기록:Q', title="중량 (lbs)")
+            ).properties(height=400)
+
+            st.altair_chart(personal_chart, use_container_width=True)
+            st.dataframe(chart_df, use_container_width=True, hide_index=True)
+    elif pw_check != "":
+        st.error("비밀번호가 일치하지 않습니다.")
