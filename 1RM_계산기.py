@@ -180,8 +180,8 @@ st.divider()
 with st.expander("🛠️ 시스템 관리자 도구"):
     admin_pw = st.text_input("관리자 인증키", type="password", key="admin_key")
     
-    # 관리자 인증 (예시 키: 1991)
-    if admin_pw == "1991":
+    # 관리자 인증 
+    if admin_pw == "5207":
         st.success("Admin 인증 완료. 데이터 제어권이 활성화되었습니다.")
         
         # 전체 데이터 뷰어
@@ -208,3 +208,4 @@ with st.expander("🛠️ 시스템 관리자 도구"):
                     st.error(f"데이터 반영 오류: {e}")
     elif admin_pw:
         st.error("접근 권한이 없습니다.")
+
