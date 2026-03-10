@@ -12,8 +12,8 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        # 탭 이름을 '정보'로 명시하여 읽어옵니다.
-        raw_df = conn.read(worksheet="정보", ttl=0)
+        # 탭 이름을 'sheet1'로 명시하여 읽어옵니다.
+        raw_df = conn.read(worksheet="sheet1", ttl=0)
         
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password'])
@@ -99,7 +99,7 @@ if st.button("기록 저장하기"):
             updated_df = updated_df[['name', 'exercise', 'weight', 'date', 'password']]
             
             # 🔴 핵심: worksheet 이름을 '정보'로 명시
-            conn.update(worksheet="정보", data=updated_df)
+            conn.update(worksheet="sheet1", data=updated_df)
             
             if prev_max > 0 and new_weight > prev_max:
                 st.balloons()
@@ -152,3 +152,4 @@ if user_name and input_mode == "기존 사용자 선택":
             st.dataframe(chart_df, use_container_width=True, hide_index=True)
     elif pw_check != "":
         st.error("비밀번호가 일치하지 않습니다.")
+
