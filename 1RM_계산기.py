@@ -8,12 +8,22 @@ import time
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
-# --- [업데이트] 종목 리스트 확장 ---
+# --- 종목 리스트 및 차트용 단축어 설정 ---
 exercise_list = [
     "Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", 
     "Deadlift", "Back Squat", "Shoulder Press",
     "Thruster", "Bench Press", "Jerk", "Overhead Squat"
 ]
+
+# 차트 표시용 단축어 매핑 테이블
+rename_map = {
+    "Power Clean": "P.Clean", "Squat Clean": "S.Clean",
+    "Power Snatch": "P.Snatch", "Squat Snatch": "S.Snatch",
+    "Deadlift": "Dead", "Back Squat": "B.Squat",
+    "Shoulder Press": "S.Press", "Thruster": "Thrust",
+    "Bench Press": "Bench", "Jerk": "Jerk",
+    "Overhead Squat": "OHS"
+}
 
 # 2. 구글 시트 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -34,7 +44,7 @@ df = get_full_data()
 
 st.title("🏋️ 1RM을 기억해")
 
-# --- 3. [최상단 배치] 실시간 박스 랭킹판 (TOP 5) ---
+# --- 3. [최상단] 실시간 박스 랭킹판 (TOP 5) ---
 selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
@@ -44,9 +54,10 @@ with st.expander(f"🔥 {selected_rank_exercise} TOP 5 리더보드", expanded=T
         tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
         
         def display_rank(data):
+            # 상위 5명만 추출
             sorted_data = data.sort_values(by='weight', ascending=False).head(5)
             if sorted_data.empty:
-                st.write("아직 기록이 없습니다.")
+                st.write("아직 등록된 기록이 없습니다.")
             else:
                 for i, row in enumerate(sorted_data.itertuples(), 1):
                     medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
@@ -94,6 +105,7 @@ with st.container():
                 user_gender_val = user_rows.iloc[0]['gender']
                 try:
                     raw_pw = user_rows.iloc[0]['password']
+                    # 소수점이나 공백 제거 후 문자열 처리
                     stored_pw = str(int(float(raw_pw))).strip()
                 except:
                     stored_pw = str(user_rows.iloc[0]['password']).strip()
@@ -108,18 +120,21 @@ with st.container():
                 is_auth = True
                 st.info("✨ 신규 등록 모드입니다. 기록 저장 시 자동 가입됩니다.")
 
-# 개인 차트 (인증 성공 시)
+# 개인 차트 (인증 성공 시 노출 및 단축어 적용)
 if is_auth and not df.empty:
     my_data = df[df['name'] == user_name].copy()
     if not my_data.empty:
         st.divider()
+        # 차트용 데이터 가공 (단축어 적용)
         chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
+        chart_df['exercise'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         chart_df.columns = ['종목', '기록']
+        
         st.write(f"📊 {user_name}님의 종목별 1RM 현황")
         personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8").encode(
-            x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=45, title=None)),
+            x=alt.X('종목:N', sort='-y', axis=alt.Axis(labelAngle=0, title=None)),
             y=alt.Y('기록:Q', title="중량 (lbs)")
-        ).properties(height=200)
+        ).properties(height=250)
         st.altair_chart(personal_chart, use_container_width=True)
 
 st.divider()
@@ -127,6 +142,7 @@ st.divider()
 # --- 5. 강도별 가이드 및 기록 저장 ---
 if user_name and is_auth:
     st.subheader("💪 오늘의 기록 업데이트")
+    # 랭킹에서 고른 종목이 기본값으로 오도록 연동
     save_exercise = st.selectbox("저장할 종목", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
     ex_record = df[(df['name'] == user_name) & (df['exercise'] == save_exercise)]
@@ -163,6 +179,7 @@ if user_name and is_auth:
                 "name": user_name, "exercise": save_exercise, "weight": new_weight, 
                 "date": current_date, "password": final_save_pw, "gender": final_gender
             }])
+            # 기존 기록 제거 후 새 기록 추가 (가장 최근 기록만 유지)
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == save_exercise))], new_record], ignore_index=True)
             
             try:
@@ -170,40 +187,40 @@ if user_name and is_auth:
                 if new_weight > prev_max:
                     st.balloons()
                     st.header(f"🎊 NEW RECORD: {new_weight} lbs! 🎊")
-                    time.sleep(5)
+                    time.sleep(3)
                 else:
-                    st.success("기록이 저장되었습니다.")
-                    time.sleep(1.5)
+                    st.success("기록이 성공적으로 저장되었습니다.")
+                    time.sleep(1)
                 st.rerun()
             except Exception as e:
-                st.error(f"저장 실패: {e}")
+                st.error(f"저장 중 오류 발생: {e}")
 
-# --- 6. 🛠️ 관리자 모드 (비밀번호: 5207) ---
+# --- 6. 🛠️ 관리자 모드 (재효 전용) ---
 st.divider()
 with st.expander("🛠️ 시스템 관리자 도구"):
     admin_pw = st.text_input("관리자 인증키", type="password", key="admin_key")
     
     if admin_pw == "5207":
-        st.success("Admin 인증 완료.")
-        st.subheader("📊 Raw Data 현황")
+        st.success("Admin 권한 활성화됨.")
+        st.subheader("📊 전체 데이터 로드")
         st.dataframe(df, use_container_width=True)
         
-        st.subheader("🗑️ 데이터 정리")
+        st.subheader("🗑️ 기록 삭제")
         target_name = st.selectbox("삭제할 사용자 선택", ["선택하세요"] + sorted(df['name'].unique().tolist()))
         
         if target_name != "선택하세요":
             user_data = df[df['name'] == target_name]
-            st.warning(f"경고: {target_name}님의 모든 기록이 삭제됩니다.")
+            st.warning(f"{target_name}님의 모든 데이터가 표시됩니다.")
             st.table(user_data[['exercise', 'weight', 'date']])
             
-            if st.button(f"🔥 {target_name} 데이터 영구 삭제"):
+            if st.button(f"🔥 {target_name} 데이터 완전 삭제"):
                 updated_df = df[df['name'] != target_name]
                 try:
                     conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password', 'gender']])
-                    st.error("삭제 완료. 새로고침합니다.")
-                    time.sleep(1.5)
+                    st.error("삭제 성공. 시스템을 새로고침합니다.")
+                    time.sleep(1)
                     st.rerun()
                 except Exception as e:
-                    st.error(f"데이터 반영 오류: {e}")
+                    st.error(f"삭제 실패: {e}")
     elif admin_pw:
         st.error("접근 권한이 없습니다.")
