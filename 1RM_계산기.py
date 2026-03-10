@@ -108,18 +108,31 @@ if user_name and (input_mode == "신규 등록" or is_auth):
             updated_df = pd.concat([df[~((df['name'] == user_name) & (df['exercise'] == exercise))], new_record], ignore_index=True)
             
             try:
+                # 1. 데이터 업데이트 먼저 수행
                 conn.update(worksheet="sheet1", data=updated_df[['name', 'exercise', 'weight', 'date', 'password']])
                 
-                # ✨ PR 갱신 축하 로직 ✨
+                # 2. PR 갱신 여부 판단
                 if new_weight > prev_max:
-                    st.balloons() # 꽃가루 효과
-                    st.success(f"🎊 대박! {exercise} 새로운 PR 경신을 진심으로 축하합니다! ({prev_max} -> {new_weight} lbs) 🎊")
-                    # 잠깐 멈췄다가 새로고침하여 데이터 반영
+                    # 꽃가루 펑!
+                    st.balloons() 
+                    
+                    # 🎉 더 크고 화려한 축하 메시지 (st.header 사용)
+                    st.header(f"🎊 NEW RECORD: {new_weight} lbs! 🎊")
+                    st.subheader(f"🔥 {user_name}님, {exercise} PR 경신을 축하합니다!")
+                    st.info(f"기존 기록 {prev_max} lbs에서 {new_weight - prev_max} lbs나 증량하셨네요!")
+                    
+                    # 💡 핵심: 축하 메시지를 볼 수 있게 5초간 대기 (RPA의 Delay 같은 역할)
                     import time
-                    time.sleep(3)
+                    with st.spinner('기록을 시트에 반영 중입니다...'):
+                        time.sleep(5) 
                 else:
-                    st.success("기록이 성공적으로 저장되었습니다.")
+                    st.success("기록이 저장되었습니다.")
+                    import time
+                    time.sleep(1.5) # 일반 저장은 짧게 대기
                 
+                # 3. 그 다음 리런
                 st.rerun()
+                
             except Exception as e:
                 st.error(f"저장 실패: {e}")
+
