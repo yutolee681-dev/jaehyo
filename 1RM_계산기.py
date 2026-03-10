@@ -8,6 +8,9 @@ import time
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
+# --- [수정] 변수 사전 정의 (에러 방지) ---
+exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
+
 # 2. 구글 시트 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -89,9 +92,10 @@ if is_auth and not df.empty:
 st.divider()
 
 # --- 4. 강도별 가이드 및 기록 저장 ---
+exercise = exercise_list[0] # 기본값 설정
+
 if user_name and is_auth:
     st.subheader("💪 오늘의 운동 및 저장")
-    exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press"]
     exercise = st.selectbox("종목 선택", exercise_list)
     
     ex_record = df[(df['name'] == user_name) & (df['exercise'] == exercise)]
@@ -140,30 +144,30 @@ if user_name and is_auth:
             except Exception as e:
                 st.error(f"저장 실패: {e}")
 
-# --- 5. ✨ 실시간 박스 랭킹판 (하단 고정) ---
+# --- 5. 실시간 박스 랭킹판 (인증 여부와 상관없이 출력) ---
 st.divider()
-st.subheader(f"🏆 {exercise if 'exercise' in locals() else '전체'} 실시간 랭킹")
+st.subheader(f"🏆 {exercise} 실시간 랭킹")
 
-# 현재 선택된 종목의 랭킹 데이터 필터링
-target_exercise = exercise if 'exercise' in locals() else exercise_list[0]
-rank_df = df[df['exercise'] == target_exercise].copy()
+# 랭킹 데이터 필터링 (현재 선택된 혹은 기본 종목 기준)
+rank_df = df[df['exercise'] == exercise].copy()
 
 if not rank_df.empty:
-    tab_m, tab_f = st.tabs(["♂️ 남성부 랭킹", "♀️ 여성부 랭킹"])
+    tab_m, tab_f = st.tabs(["♂️ 남성부", "♀️ 여성부"])
     
     def display_rank(data):
+        # 중량 순으로 정렬 후 상위 5명
         sorted_data = data.sort_values(by='weight', ascending=False).head(5)
         if sorted_data.empty:
-            st.write("아직 등록된 기록이 없습니다.")
+            st.write("아직 기록이 없습니다.")
         else:
             for i, row in enumerate(sorted_data.itertuples(), 1):
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}th"
-                st.markdown(f"#### {medal} **{row.name}** : `{row.weight} lbs`")
-                st.caption(f"달성일: {row.date}")
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
+                st.markdown(f"{medal} **{row.name}** : `{row.weight} lbs`  ")
+                st.caption(f"기록일: {row.date}")
 
     with tab_m:
         display_rank(rank_df[rank_df['gender'] == "남성"])
     with tab_f:
         display_rank(rank_df[rank_df['gender'] == "여성"])
 else:
-    st.write("해당 종목은 아직 기록이 없습니다. 첫 1위가 되어보세요!")
+    st.write(f"아직 {exercise} 기록이 없습니다. 첫 주인공이 되어보세요!")
