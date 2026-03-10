@@ -136,19 +136,25 @@ if st.session_state.is_auth:
     ex_record = df[(df['name'] == st.session_state.user_name) & (df['exercise'] == save_exercise)]
     prev_max = float(pd.to_numeric(ex_record['weight'], errors='coerce').max()) if not ex_record.empty else 0.0
     
-    # --- [복구 핵심] 5% 단위 퍼센트 가이드 ---
+    # --- [수정] 순차적 퍼센트 가이드 (세로 흐름 유지) ---
     if prev_max > 0:
         st.info(f"💡 {save_exercise} 최고: **{prev_max} lbs**")
-        # 50%부터 100%까지 5% 간격 리스트 생성
         percents = list(range(50, 101, 5))
         
-        # 모바일 가독성을 위해 3열로 배치
-        cols = st.columns(3)
-        for i, p in enumerate(percents):
-            with cols[i % 3]:
-                # 2.5단위 반올림 계산 로직 유지
+        # 2열로 구성하되, 왼쪽 열에 낮은 퍼센트, 오른쪽 열에 높은 퍼센트가 오도록 배치
+        mid = (len(percents) + 1) // 2
+        left_p = percents[:mid]
+        right_p = percents[mid:]
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            for p in left_p:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                st.metric(label=f"{p}%", value=f"{calc_w} lb")
+                st.write(f"**{p}%** : {calc_w} lbs")
+        with col2:
+            for p in right_p:
+                calc_w = round((prev_max * p / 100) / 2.5) * 2.5
+                st.write(f"**{p}%** : {calc_w} lbs")
     
     st.divider()
     new_weight = st.number_input("중량 입력 (lbs)", value=0.0, step=5.0)
