@@ -79,32 +79,8 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (모바일 좌우 고정 최종 해결책) ---
+# --- 4. 실시간 전체 랭킹 (표 방식 레이아웃) ---
 st.subheader("🏆 박스 실시간 랭킹 (전체)")
-
-# CSS 강제 주입: 모든 화면 크기에서 가로 배치 유지 및 줄바꿈 차단
-st.markdown("""
-    <style>
-    /* 컬럼 컨테이너의 줄바꿈 방지 */
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: flex-start !important;
-    }
-    /* 각 컬럼이 정확히 절반씩 차지하도록 강제 */
-    [data-testid="column"] {
-        width: 50% !important;
-        min-width: 50% !important;
-        flex: 1 1 50% !important;
-    }
-    /* 모바일에서 텍스트가 너무 크면 깨지므로 폰트 사이즈 조정 */
-    h4 {
-        font-size: 1.1rem !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
@@ -113,35 +89,51 @@ best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('n
 
 with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded=True):
     if not best_rank_df.empty:
-        col_m, col_f = st.columns(2)
+        # 남/여 데이터 분리
+        m_data = best_rank_df[best_rank_df['gender'] == "남성"].sort_values('weight', ascending=False)
+        f_data = best_rank_df[best_rank_df['gender'] == "여성"].sort_values('weight', ascending=False)
         
-        def display_full_rank(data, title_icon):
-            st.markdown(f"#### {title_icon}")
-            sorted_data = data.sort_values(by='weight', ascending=False)
-            if sorted_data.empty:
-                st.write("기록 없음")
+        # 최대 행 수 결정
+        max_rows = max(len(m_data), len(f_data))
+        
+        # HTML 테이블 생성
+        html_code = f"""
+        <table style="width:100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed;">
+            <thead>
+                <tr style="border-bottom: 1px solid #444;">
+                    <th style="text-align: left; padding: 5px;">♂️ Male</th>
+                    <th style="text-align: left; padding: 5px;">♀️ Female</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        
+        for i in range(max_rows):
+            # 남성 열
+            if i < len(m_data):
+                row_m = m_data.iloc[i]
+                medal_m = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{get_ordinal(i+1)}"
+                name_m_style = "color:#29b5e8; font-weight:bold;" if st.session_state.user_name == row_m['name'] else ""
+                m_col = f"<td>{medal_m} <span style='{name_m_style}'>{row_m['name']}</span> <b style='font-size:0.7rem;'>{row_m['weight']}</b></td>"
             else:
-                for i, row in enumerate(sorted_data.itertuples(), 1):
-                    if i == 1: medal = "🥇"
-                    elif i == 2: medal = "🥈"
-                    elif i == 3: medal = "🥉"
-                    else: medal = f"<small>{get_ordinal(i)}</small>"
-                    
-                    name_color = "#29b5e8" if st.session_state.user_name == row.name else "inherit"
-                    # 텍스트 오버플로우 방지 및 폰트 크기 최적화
-                    st.markdown(
-                        f"<div style='font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom:5px;'>"
-                        f"{medal} <span style='color:{name_color}; font-weight:bold;'>{row.name}</span>: {row.weight}lb"
-                        f"</div>", 
-                        unsafe_allow_html=True
-                    )
-
-        with col_m:
-            display_full_rank(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
-        with col_f:
-            display_full_rank(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
+                m_col = "<td>-</td>"
+                
+            # 여성 열
+            if i < len(f_data):
+                row_f = f_data.iloc[i]
+                medal_f = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{get_ordinal(i+1)}"
+                name_f_style = "color:#29b5e8; font-weight:bold;" if st.session_state.user_name == row_f['name'] else ""
+                f_col = f"<td>{medal_f} <span style='{name_f_style}'>{row_f['name']}</span> <b style='font-size:0.7rem;'>{row_f['weight']}</b></td>"
+            else:
+                f_col = "<td>-</td>"
+            
+            html_code += f"<tr>{m_col}{f_col}</tr>"
+            
+        html_code += "</tbody></table>"
+        st.markdown(html_code, unsafe_allow_html=True)
     else:
         st.write("첫 주인공이 되어보세요!")
+        
 st.divider()
 
 # --- 5. 실시간 응원 댓글 ---
@@ -299,6 +291,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
