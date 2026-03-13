@@ -151,14 +151,15 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded
         
 st.divider()
 
-# --- 5. 실시간 응원 댓글 ---
-st.subheader("💬 실시간 응원 한마디")
+# --- 5. 실시간 응원 댓글 (초슬림 & 세련된 버전) ---
+st.markdown("### 💬 응원 한마디") # 글씨 크기를 약간 줄임
 
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
-            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="예: 재효님 클린 미쳤네요ㄷㄷ")
+            # 라벨을 숨기고 입력창 높이를 최적화
+            new_comment = st.text_input("댓글", placeholder="파이팅! 응원을 남겨주세요", label_visibility="collapsed")
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         
@@ -171,11 +172,31 @@ if st.session_state.is_auth:
             }])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
             conn.update(worksheet="comments", data=all_comments)
-            st.success("댓글 등록 완료!")
-            time.sleep(1)
             st.rerun()
-else:
-    st.info("로그인하면 댓글을 남길 수 있습니다.")
+
+# 댓글 리스트 출력 (두꺼운 박스 제거)
+if not comments_df.empty:
+    # 최신 5개만 얇게 표시
+    display_comments = comments_df.sort_index(ascending=False).head(5)
+    
+    for idx, row in display_comments.iterrows():
+        # 한 줄 구성: 이름, 내용, 시간, 삭제버튼
+        c_text, c_del = st.columns([5, 0.5])
+        with c_text:
+            st.markdown(
+                f"**{row['name']}** <span style='margin-left:10px;'>{row['comment']}</span> "
+                f"<small style='color:gray; margin-left:10px;'>{row['date']}</small>", 
+                unsafe_allow_html=True
+            )
+        with c_del:
+            if st.session_state.is_auth and st.session_state.user_name == row['name']:
+                if st.button("✕", key=f"del_c_{idx}", help="삭제"): # 아이콘을 더 얇은 걸로 변경
+                    updated_comments = comments_df.drop(idx)
+                    conn.update(worksheet="comments", data=updated_comments)
+                    st.rerun()
+        st.write("<div style='margin-top:-10px; border-bottom:0.5px solid #eee;'></div>", unsafe_allow_html=True) # 아주 얇은 실선
+
+st.divider()
 
 if not comments_df.empty:
     with st.expander("최근 댓글 보기", expanded=True):
@@ -375,6 +396,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
