@@ -6,7 +6,7 @@ import altair as alt
 import time
 
 # 1. 페이지 설정
-st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
+st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="wide") # wide 모드로 변경해서 랭킹 가독성 확보
 
 # --- 서수(Ordinal) 변환 함수 ---
 def get_ordinal(n):
@@ -64,39 +64,39 @@ st.title("🏋️ 1RM을 기억해")
 
 # --- 3. 환영 메시지 및 로그아웃 ---
 if st.session_state.is_auth:
-    col_w, col_l = st.columns([3, 1])
-    col_w.subheader(f"👋 {st.session_state.user_name}님")
+    col_w, col_l = st.columns([5, 1])
+    col_w.subheader(f"👋 {st.session_state.user_name}님 환영합니다!")
     if col_l.button("로그아웃", use_container_width=True):
         st.session_state.is_auth = False
         st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (남성 왼쪽 / 여성 오른쪽 병렬) ---
-st.subheader("🏆 박스 실시간 랭킹 (전체)")
+# --- 4. 실시간 전체 랭킹 (한 그리드에 남/여 병렬 배치) ---
+st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-# ✅ 요청하신 병렬 배치 구조
-col_male, col_female = st.columns(2)
+# ✅ 요청하신 한 그리드(남성 왼쪽, 여성 오른쪽) 배치
+rank_col1, rank_col2 = st.columns(2)
 
-def display_rank_list(data, title):
-    st.markdown(f"#### {title}")
+def display_rank_box(data, title, icon):
+    st.markdown(f"#### {icon} {title}")
     sd = data.sort_values(by='weight', ascending=False)
     if sd.empty:
-        st.write("기록 없음")
+        st.info("등록된 기록이 없습니다.")
     else:
         for i, row in enumerate(sd.itertuples(), 1):
             medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"**{get_ordinal(i)}**")
-            name_html = f"**<span style='color:#29b5e8;'>{row.name}</span>**" if st.session_state.user_name == row.name else f"{row.name}"
-            st.markdown(f"{medal} {name_html} : `{row.weight} lb`", unsafe_allow_html=True)
+            name_style = f"color:#29b5e8; font-weight:bold;" if st.session_state.user_name == row.name else ""
+            st.markdown(f"{medal} <span style='{name_style}'>{row.name}</span> : `{row.weight} lb`", unsafe_allow_html=True)
 
-with col_male:
-    display_rank_list(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
+with rank_col1:
+    display_rank_box(best_rank_df[best_rank_df['gender'] == "남성"], "Male", "♂️")
 
-with col_female:
-    display_rank_list(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
+with rank_col2:
+    display_rank_box(best_rank_df[best_rank_df['gender'] == "여성"], "Female", "♀️")
 
 st.divider()
 
@@ -105,7 +105,7 @@ st.subheader("💬 실시간 응원 한마디")
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         c1, c2 = st.columns([4, 1])
-        new_comment = c1.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="예: 재효님 클린 미쳤네요ㄷㄷ")
+        new_comment = c1.text_input(f"{st.session_state.user_name}님, 응원 한마디 남겨주세요!", placeholder="예: 재효님 클린 미쳤네요ㄷㄷ")
         if c2.form_submit_button("등록") and new_comment:
             kst_now = datetime.now() + timedelta(hours=9)
             new_row = pd.DataFrame([{"name": st.session_state.user_name, "comment": new_comment, "date": kst_now.strftime("%m/%d %H:%M")}])
@@ -117,11 +117,11 @@ else:
 if not comments_df.empty:
     with st.expander("최근 댓글 보기", expanded=True):
         for idx, row in comments_df.sort_index(ascending=False).head(10).iterrows():
-            c1, c2 = st.columns([5, 1])
-            c1.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
-            c1.info(row['comment'])
+            cc1, cc2 = st.columns([5, 1])
+            cc1.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
+            cc1.info(row['comment'])
             if st.session_state.is_auth and st.session_state.user_name == row['name']:
-                if c2.button("🗑️", key=f"del_{idx}"):
+                if cc2.button("🗑️", key=f"del_{idx}"):
                     conn.update(worksheet="comments", data=comments_df.drop(idx)); st.rerun()
 
 st.divider()
@@ -156,7 +156,7 @@ if st.session_state.is_auth:
     if not my_data.empty:
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-        st.write(f"📊 {st.session_state.user_name}님의 최고 기록")
+        st.write(f"📊 {st.session_state.user_name}님의 최고 기록 현황")
         
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
@@ -166,7 +166,7 @@ if st.session_state.is_auth:
         text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
         st.altair_chart(bars + text, use_container_width=True)
         
-        with st.expander("📋 상세 기록 조회"):
+        with st.expander("📋 나의 상세 기록 전체 보기"):
             my_exs = sorted(my_data['exercise'].unique().tolist())
             sel_ex = st.selectbox("종목 필터", ["전체 보기"] + my_exs)
             disp_df = my_data if sel_ex == "전체 보기" else my_data[my_data['exercise'] == sel_ex]
@@ -174,25 +174,26 @@ if st.session_state.is_auth:
 
     st.divider()
 
-    # --- 8. 기록 업데이트 & 퍼센트 계산기 (50%부터 시작, 5% 단위) ---
+    # --- 8. 기록 업데이트 & 퍼센트 계산기 (UI 개선) ---
     st.subheader("💪 오늘의 기록 업데이트")
-    save_ex = st.selectbox("종목 선택", exercise_list)
+    save_ex = st.selectbox("업데이트할 종목 선택", exercise_list)
     p_max = float(my_data[my_data['exercise'] == save_ex]['weight'].max()) if not my_data[my_data['exercise'] == save_ex].empty else 0.0
     
     if p_max > 0:
-        st.info(f"💡 {save_ex} 최고: **{p_max} lbs**")
-        with st.expander("📊 퍼센트별 중량 (5% 단위)", expanded=True):
-            # ✅ 50%부터 55, 60... 순서대로 표시
+        st.info(f"💡 {save_ex} 나의 최고 기록: **{p_max} lbs**")
+        with st.expander("📊 퍼센트별 중량 가이드 (5% 단위)", expanded=True):
+            # ✅ 요청하신 디테일: 퍼센트는 작게, 중량(lb)은 크고 굵게!
             percents = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
             m_col1, m_col2 = st.columns(2)
             for i, p in enumerate(percents):
                 calc_w = round((p_max * p / 100) / 2.5) * 2.5
                 target_col = m_col1 if i % 2 == 0 else m_col2
-                target_col.write(f"**{p}%** : `{calc_w} lb`")
+                # HTML 커스텀 스타일 적용
+                target_col.markdown(f"<small style='color:gray;'>{p}%</small> <b style='font-size:1.2rem;'>{calc_w}</b> <small>lb</small>", unsafe_allow_html=True)
     
-    new_w = st.number_input("오늘의 중량 (lbs)", value=p_max, step=5.0)
-    new_m = st.text_input("오늘의 메모", placeholder="컨디션 등 기록")
-    if st.button("🏋️ 기록 저장", use_container_width=True) and new_w > 0:
+    new_w = st.number_input("기록 입력 (lbs)", value=p_max, step=5.0)
+    new_m = st.text_input("메모 (선택사항)", placeholder="예: 컨디션 좋음, 노랩 주의")
+    if st.button("🏋️ 새로운 기록 저장하기", use_container_width=True) and new_w > 0:
         kst_now = datetime.now() + timedelta(hours=9)
         u_data = df[df['name'] == st.session_state.user_name]
         f_pw = str(u_data.iloc[-1]['password']) if not u_data.empty else st.session_state.get('temp_pw', '0000')
@@ -203,9 +204,9 @@ if st.session_state.is_auth:
 
 # --- 9. Admin ---
 st.divider()
-with st.expander("🛠️ Admin"):
-    if st.text_input("Key", type="password") == "5207":
-        st.write("### 원본 데이터")
+with st.expander("🛠️ 시스템 관리자"):
+    if st.text_input("관리자 인증 키", type="password") == "5207":
+        st.write("### 📂 전체 운동 기록 데이터")
         st.dataframe(df)
-        st.write("### 댓글 데이터")
+        st.write("### 💬 전체 응원 댓글 데이터")
         st.dataframe(comments_df)
