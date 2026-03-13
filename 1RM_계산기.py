@@ -33,7 +33,6 @@ def get_full_data():
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
-        # 필수 컬럼 보장 (memo 포함)
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
         for col, default in required_cols.items():
             if col not in raw_df.columns:
@@ -64,12 +63,16 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 박스 랭킹판 ---
+# --- 4. 실시간 박스 랭킹판 (누적 데이터 중 최고 기록만 필터링) ---
 selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
+
+# 전체 데이터 중 해당 종목의 사람별 최고 기록 추출
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
+rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
+best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
 with st.expander(f"🔥 {selected_rank_exercise} TOP 5", expanded=True):
-    if not rank_df.empty:
+    if not best_rank_df.empty:
         tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
         def display_rank(data):
             sorted_data = data.sort_values(by='weight', ascending=False).head(5)
@@ -78,8 +81,8 @@ with st.expander(f"🔥 {selected_rank_exercise} TOP 5", expanded=True):
                 for i, row in enumerate(sorted_data.itertuples(), 1):
                     medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
                     st.markdown(f"{medal} **{row.name}** : `{row.weight} lbs` ")
-        with tab_m: display_rank(rank_df[rank_df['gender'] == "남성"])
-        with tab_f: display_rank(rank_df[rank_df['gender'] == "여성"])
+        with tab_m: display_rank(best_rank_df[best_rank_df['gender'] == "남성"])
+        with tab_f: display_rank(best_rank_df[best_rank_df['gender'] == "여성"])
     else: st.write("첫 주인공이 되어보세요!")
 
 st.divider()
@@ -96,12 +99,12 @@ if not st.session_state.is_auth:
                 pw_input = st.text_input("비밀번호", type="password")
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
-                    try: stored_pw = str(int(float(user_rows.iloc[0]['password']))).strip()
-                    except: stored_pw = str(user_rows.iloc[0]['password']).strip()
+                    # 가장 최근 비밀번호 가져오기
+                    stored_pw = str(user_rows.iloc[-1]['password']).strip()
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
                         st.session_state.user_name = selected_name
-                        st.session_state.user_gender = user_rows.iloc[0]['gender']
+                        st.session_state.user_gender = user_rows.iloc[-1]['gender']
                         st.rerun()
                     else: st.error("비밀번호 불일치")
         else:
@@ -117,35 +120,40 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = new_pw
                     st.rerun()
 
-# --- 6. 개인 차트 및 기록 업데이트 ---
+# --- 6. 개인 차트 및 누적 히스토리 ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
+    my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
+    
     if not my_data.empty:
-        chart_df = my_data[['exercise', 'weight']].sort_values(by='weight', ascending=False)
-        chart_df['exercise'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-        chart_df.columns = ['종목', '기록']
-        st.write(f"📊 {st.session_state.user_name}님의 현황")
-        personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8", cornerRadiusEnd=5).encode(
-            y=alt.Y('종목:N', sort='-x', title=None),
-            x=alt.X('기록:Q', title="중량 (lbs)"),
-        ).properties(height=alt.Step(30))
-        st.altair_chart(personal_chart + personal_chart.mark_text(align='left', dx=5), use_container_width=True)
+        # 차트용: 종목별 최고 기록만
+        chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise')
+        chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         
-        # [추가] 내 메모 기록 보기
-        with st.expander("📋 내 최근 메모 확인"):
-            memo_df = my_data[['exercise', 'weight', 'date', 'memo']].sort_values(by='date', ascending=False)
-            st.dataframe(memo_df, hide_index=True)
+        st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
+        personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8", cornerRadiusEnd=5).encode(
+            y=alt.Y('exercise_short:N', sort='-x', title=None),
+            x=alt.X('weight:Q', title="중량 (lbs)"),
+        ).properties(height=alt.Step(30))
+        st.altair_chart(personal_chart + personal_chart.mark_text(align='left', dx=5, text=alt.Text('weight:Q')), use_container_width=True)
+        
+        # [핵심] 누적 메모 히스토리 보기
+        with st.expander("📋 나의 전체 운동 기록 (메모 포함)"):
+            history_df = my_data[['date', 'exercise', 'weight', 'memo']].sort_values(by=['date', 'exercise'], ascending=False)
+            st.dataframe(history_df, hide_index=True, use_container_width=True)
 
     st.divider()
 
-    st.subheader("💪 기록 업데이트")
+    # --- 7. 기록 업데이트 (무조건 누적 저장) ---
+    st.subheader("💪 오늘의 기록 업데이트")
     save_exercise = st.selectbox("종목 선택", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
-    ex_record = df[(df['name'] == st.session_state.user_name) & (df['exercise'] == save_exercise)]
-    prev_max = float(pd.to_numeric(ex_record['weight'], errors='coerce').max()) if not ex_record.empty else 0.0
+    # 해당 종목의 기존 최고 기록 찾기 (가이드용)
+    ex_record = my_data[my_data['exercise'] == save_exercise]
+    prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
     
     if prev_max > 0:
-        st.info(f"💡 {save_exercise} 최고: **{prev_max} lbs**")
+        st.info(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
         percents = list(range(50, 101, 5))
         col1, col2 = st.columns(2)
         for i, p in enumerate(percents):
@@ -156,14 +164,14 @@ if st.session_state.is_auth:
                 with col2: st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
-    # [입력창] 중량과 메모 같이 받기
-    new_weight = st.number_input("중량 입력 (lbs)", value=0.0, step=5.0)
-    new_memo = st.text_input("메모 (선택사항)", placeholder="예: 컨디션 좋음, 벨트 착용 등")
+    new_weight = st.number_input("오늘의 중량 (lbs)", value=0.0, step=5.0)
+    new_memo = st.text_input("오늘의 메모", placeholder="예: 무릎 컨디션 난조, 벨트 없이 성공!")
     
-    if st.button("🏋️ 1RM 저장하기", use_container_width=True):
+    if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
         if new_weight > 0:
+            # 최근 비밀번호 유지
             user_data = df[df['name'] == st.session_state.user_name]
-            final_pw = str(user_data['password'].iloc[0]) if not user_data.empty else st.session_state.get('temp_pw', '0000')
+            final_pw = str(user_data.iloc[-1]['password']) if not user_data.empty else st.session_state.get('temp_pw', '0000')
             
             new_record = pd.DataFrame([{
                 "name": st.session_state.user_name, 
@@ -172,10 +180,11 @@ if st.session_state.is_auth:
                 "date": datetime.now().strftime("%Y-%m-%d"), 
                 "password": final_pw, 
                 "gender": st.session_state.user_gender,
-                "memo": new_memo # 메모 저장
+                "memo": new_memo 
             }])
             
-            updated_df = pd.concat([df[~((df['name'] == st.session_state.user_name) & (df['exercise'] == save_exercise))], new_record], ignore_index=True)
+            # [수정] 기존 기록 삭제 없이 무조건 아래에 추가 (Append)
+            updated_df = pd.concat([df, new_record], ignore_index=True)
             conn.update(worksheet="sheet1", data=updated_df)
             st.balloons()
             time.sleep(1)
@@ -183,7 +192,7 @@ if st.session_state.is_auth:
 
     st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
 
-# --- 7. 관리자 모드 ---
+# --- 8. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
