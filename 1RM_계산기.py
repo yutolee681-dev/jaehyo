@@ -232,6 +232,10 @@ if st.session_state.is_auth:
             last_row = user_data.iloc[-1] if not user_data.empty else None
             final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
             
+            # [수정] final_pw가 이미 '로 시작하지 않는다면 붙여줌
+            if not str(final_pw).startswith("'"):
+                final_pw = f"'{final_pw}"
+            
             new_record = pd.DataFrame([{
                 "name": st.session_state.user_name, "exercise": save_exercise, "weight": new_weight, 
                 "date": kst_now.strftime("%Y-%m-%d"), "password": final_pw, 
@@ -250,3 +254,4 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
