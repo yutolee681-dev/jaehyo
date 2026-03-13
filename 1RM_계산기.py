@@ -5,6 +5,13 @@ from datetime import datetime, timedelta
 import altair as alt
 import time
 
+with st.sidebar:
+    st.title("⚙️ 설정")
+    if st.button("🔄 데이터 새로고침", use_container_width=True):
+        st.rerun()
+    st.info("데이터가 실시간으로 보이지 않으면 위 버튼을 눌러주세요.")
+
+
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
@@ -67,11 +74,16 @@ if 'is_auth' not in st.session_state:
 st.markdown("<div id='link_to_top'></div>", unsafe_allow_html=True)
 st.title("🏋️ 1RM을 기억해")
 
-# --- 3. 최상단 환영 메시지 및 로그아웃 ---
+# --- 3. 최상단 환영 메시지 및 로그아웃 수정 ---
 if st.session_state.is_auth:
-    col_welcome, col_logout = st.columns([3, 1])
+    col_welcome, col_refresh, col_logout = st.columns([2, 1, 1]) # 컬럼 추가
     with col_welcome:
         st.subheader(f"👋 {st.session_state.user_name}님")
+    with col_refresh:
+        # 새로고침 버튼
+        if st.button("🔄 새로고침", use_container_width=True):
+            st.cache_data.clear() # 캐시된 데이터가 있다면 삭제
+            st.rerun()
     with col_logout:
         if st.button("로그아웃", use_container_width=True):
             st.session_state.is_auth = False
@@ -284,6 +296,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
