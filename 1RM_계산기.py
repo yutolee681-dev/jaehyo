@@ -71,28 +71,32 @@ if st.session_state.is_auth:
         st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 ---
+# --- 4. 실시간 전체 랭킹 (남성 왼쪽 / 여성 오른쪽 병렬) ---
 st.subheader("🏆 박스 실시간 랭킹 (전체)")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-with st.expander(f"🔥 {selected_rank_exercise} 전체 순위", expanded=True):
-    if not best_rank_df.empty:
-        col_m, col_f = st.columns(2)
-        def display_rank(data, title):
-            st.markdown(f"#### {title}")
-            sd = data.sort_values(by='weight', ascending=False)
-            if sd.empty: st.write("기록 없음")
-            else:
-                for i, row in enumerate(sd.itertuples(), 1):
-                    medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"**{get_ordinal(i)}**")
-                    name_html = f"**<span style='color:#29b5e8;'>{row.name}</span>**" if st.session_state.user_name == row.name else f"{row.name}"
-                    st.markdown(f"{medal} {name_html} : `{row.weight} lb`", unsafe_allow_html=True)
-        with col_m: display_rank(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
-        with col_f: display_rank(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
-    else: st.write("기록이 없습니다.")
+# ✅ 요청하신 병렬 배치 구조
+col_male, col_female = st.columns(2)
+
+def display_rank_list(data, title):
+    st.markdown(f"#### {title}")
+    sd = data.sort_values(by='weight', ascending=False)
+    if sd.empty:
+        st.write("기록 없음")
+    else:
+        for i, row in enumerate(sd.itertuples(), 1):
+            medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"**{get_ordinal(i)}**")
+            name_html = f"**<span style='color:#29b5e8;'>{row.name}</span>**" if st.session_state.user_name == row.name else f"{row.name}"
+            st.markdown(f"{medal} {name_html} : `{row.weight} lb`", unsafe_allow_html=True)
+
+with col_male:
+    display_rank_list(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
+
+with col_female:
+    display_rank_list(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
 
 st.divider()
 
@@ -145,7 +149,7 @@ if not st.session_state.is_auth:
             st.session_state.is_auth, st.session_state.user_name, st.session_state.user_gender = True, n_name, n_gender
             st.session_state.temp_pw = f"'{n_pw}"; st.rerun()
 
-# --- 7. 개인 차트 (그래프 안 숫자 라벨 복구) ---
+# --- 7. 개인 차트 (숫자 라벨 포함) ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
@@ -154,17 +158,12 @@ if st.session_state.is_auth:
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         st.write(f"📊 {st.session_state.user_name}님의 최고 기록")
         
-        # 📈 그래프 레이어 분리 (막대 + 텍스트 라벨)
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
             x=alt.X('weight:Q', title="lbs")
         )
         bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
-        # ✅ 이 부분(숫자 라벨) 다시 넣었습니다!
-        text = base.mark_text(
-            align='right', dx=-5, color='white', fontWeight='bold'
-        ).encode(text=alt.Text('weight:Q', format='.0f'))
-        
+        text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
         st.altair_chart(bars + text, use_container_width=True)
         
         with st.expander("📋 상세 기록 조회"):
@@ -175,7 +174,7 @@ if st.session_state.is_auth:
 
     st.divider()
 
-    # --- 8. 기록 업데이트 & 모바일용 퍼센트 계산기 ---
+    # --- 8. 기록 업데이트 & 퍼센트 계산기 (50%부터 시작, 5% 단위) ---
     st.subheader("💪 오늘의 기록 업데이트")
     save_ex = st.selectbox("종목 선택", exercise_list)
     p_max = float(my_data[my_data['exercise'] == save_ex]['weight'].max()) if not my_data[my_data['exercise'] == save_ex].empty else 0.0
@@ -183,7 +182,8 @@ if st.session_state.is_auth:
     if p_max > 0:
         st.info(f"💡 {save_ex} 최고: **{p_max} lbs**")
         with st.expander("📊 퍼센트별 중량 (5% 단위)", expanded=True):
-            percents = [100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50]
+            # ✅ 50%부터 55, 60... 순서대로 표시
+            percents = [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
             m_col1, m_col2 = st.columns(2)
             for i, p in enumerate(percents):
                 calc_w = round((p_max * p / 100) / 2.5) * 2.5
@@ -192,7 +192,7 @@ if st.session_state.is_auth:
     
     new_w = st.number_input("오늘의 중량 (lbs)", value=p_max, step=5.0)
     new_m = st.text_input("오늘의 메모", placeholder="컨디션 등 기록")
-    if st.button("🏋️ 새로운 기록 저장", use_container_width=True) and new_w > 0:
+    if st.button("🏋️ 기록 저장", use_container_width=True) and new_w > 0:
         kst_now = datetime.now() + timedelta(hours=9)
         u_data = df[df['name'] == st.session_state.user_name]
         f_pw = str(u_data.iloc[-1]['password']) if not u_data.empty else st.session_state.get('temp_pw', '0000')
@@ -201,11 +201,11 @@ if st.session_state.is_auth:
         conn.update(worksheet="sheet1", data=pd.concat([df, new_rec], ignore_index=True))
         st.balloons(); time.sleep(1); st.rerun()
 
-# --- 9. 관리자 모드 ---
+# --- 9. Admin ---
 st.divider()
 with st.expander("🛠️ Admin"):
     if st.text_input("Key", type="password") == "5207":
-        st.write("### sheet1 원본")
+        st.write("### 원본 데이터")
         st.dataframe(df)
-        st.write("### comments 원본")
+        st.write("### 댓글 데이터")
         st.dataframe(comments_df)
