@@ -312,32 +312,36 @@ if st.session_state.is_auth:
                     time.sleep(1)
                     st.rerun()
 
-            # 기록 리스트 출력
+            # 기록 리스트 출력 (모바일 최적화 버전)
             for idx, row in history_display_df.iterrows():
-                col1, col2, col3 = st.columns([2, 0.7, 0.8]) # 수정 버튼을 위해 칸 조절
+                # 전체적인 높이를 줄이기 위해 컬럼 비율 조정
+                col1, col2 = st.columns([3, 1]) 
+                
                 with col1:
                     st.markdown(f"**{row['date']}** | {row['exercise']}")
-                    memo_val = str(row['memo']).strip()
-                    if memo_val and memo_val.lower() != 'nan' and memo_val != '':
-                        st.caption(f"📝 {memo_val}")
+                    m_val = str(row['memo']).strip()
+                    if m_val and m_val.lower() != 'nan' and m_val != '':
+                        st.caption(f"📝 {m_val}")
                     else:
-                        st.caption("📝 기록된 메모가 없습니다.")
+                        st.caption("📝 기록 없음")
+                
                 with col2:
-                    st.markdown(f"`{row['weight']} lb`")
-                with col3:
-                    # 수정 버튼과 삭제 버튼을 나란히 배치
-                    btn_col1, btn_col2 = st.columns(2)
-                    with btn_col1:
-                        if st.button("✏️", key=f"edit_{idx}"):
-                            edit_record(idx, row['weight'], row['memo'], row['date'], row['exercise'])
-                    with btn_col2:
-                        if st.button("🗑️", key=f"del_{idx}"):
-                            updated_df = df.drop(idx)
-                            conn.update(worksheet="sheet1", data=updated_df)
-                            st.warning("삭제되었습니다.")
-                            time.sleep(1)
-                            st.rerun()
-                st.divider()
+                    # 중량을 강조해서 표시
+                    st.markdown(f"#### {row['weight']} <small>lb</small>", unsafe_allow_html=True)
+
+                # 수정/삭제 버튼을 별도의 작은 컬럼으로 한 줄에 배치
+                btn_col1, btn_col2, _ = st.columns([1, 1, 3]) 
+                with btn_col1:
+                    if st.button("✏️", key=f"edit_{idx}", use_container_width=True):
+                        edit_record(idx, row['weight'], row['memo'], row['date'], row['exercise'])
+                with btn_col2:
+                    if st.button("🗑️", key=f"del_{idx}", use_container_width=True):
+                        updated_df = df.drop(idx)
+                        conn.update(worksheet="sheet1", data=updated_df)
+                        st.warning("삭제됨")
+                        time.sleep(1)
+                        st.rerun()
+                st.write("<div style='margin-top:-10px; border-bottom:0.5px solid #444;'></div>", unsafe_allow_html=True)
 
     else:
         st.info("아직 등록된 기록이 없습니다. 아래에서 첫 기록을 입력해보세요!")
@@ -388,6 +392,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
