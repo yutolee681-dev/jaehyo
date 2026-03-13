@@ -228,62 +228,68 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = f"'{new_pw}" # '0' 보존을 위한 접두어
                     st.rerun()
 
-# --- 7. 개인 차트 및 상세 기록 (그래프 & 삭제 기능 추가) ---
+# --- 7. 개인 대시보드 (그래프, 성장 추이, 기록 관리) ---
 if st.session_state.is_auth:
+    # 데이터 전처리
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
-    my_data['date'] = pd.to_datetime(my_data['date']).dt.date # 날짜 형식 통일
+    my_data['date'] = pd.to_datetime(my_data['date'], errors='coerce').dt.date
     
     if not my_data.empty:
-        # (1) 최고 기록 바 차트 (기존 유지)
-        chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
-        chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-        st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
+        st.subheader(f"📊 {st.session_state.user_name}님의 기록실")
         
-        base = alt.Chart(chart_df).encode(
-            y=alt.Y('exercise_short:N', sort='-x', title=None),
-            x=alt.X('weight:Q', title="중량 (lbs)")
-        )
-        bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
-        text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
-        st.altair_chart(bars + text, use_container_width=True)
+        # 탭을 사용하여 화면을 효율적으로 구성
+        tab1, tab2, tab3 = st.tabs(["🏆 최고 기록", "📈 성장 추이", "📋 기록 관리"])
 
-        # (2) 성장 그래프 (새로 추가)
-        st.write(f"📈 기록 성장 추이")
-        graph_exercise = st.selectbox("추이를 볼 종목 선택", exercise_list, key="graph_ex")
-        ex_history = my_data[my_data['exercise'] == graph_exercise].sort_values('date')
-        
-        if not ex_history.empty:
-            line_chart = alt.Chart(ex_history).mark_line(point=True, color="#ff4b4b").encode(
-                x=alt.X('date:T', title="날짜"),
-                y=alt.Y('weight:Q', title="중량 (lbs)", scale=alt.Scale(zero=False)),
-                tooltip=['date', 'weight', 'memo']
-            ).properties(height=300)
-            st.altair_chart(line_chart, use_container_width=True)
-        else:
-            st.info(f"{graph_exercise} 기록이 아직 없습니다.")
+        with tab1:
+            st.write("#### 종목별 Best Record")
+            chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
+            chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
+            
+            base = alt.Chart(chart_df).encode(
+                y=alt.Y('exercise_short:N', sort='-x', title=None),
+                x=alt.X('weight:Q', title="중량 (lbs)")
+            )
+            bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
+            text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(
+                text=alt.Text('weight:Q', format='.0f')
+            )
+            st.altair_chart(bars + text, use_container_width=True)
 
-        # (3) 상세 기록 조회 및 삭제 (수정)
-        with st.expander("📋 상세 기록 조회 및 삭제"):
+        with tab2:
+            st.write("#### 시간별 성장 그래프")
+            graph_exercise = st.selectbox("추이를 볼 종목 선택", exercise_list, key="graph_ex")
+            ex_history = my_data[my_data['exercise'] == graph_exercise].sort_values('date')
+            
+            if not ex_history.empty:
+                line_chart = alt.Chart(ex_history).mark_line(point=True, color="#ff4b4b").encode(
+                    x=alt.X('date:T', title="날짜"),
+                    y=alt.Y('weight:Q', title="중량 (lbs)", scale=alt.Scale(zero=False)),
+                    tooltip=['date', 'weight', 'memo']
+                ).properties(height=300)
+                st.altair_chart(line_chart, use_container_width=True)
+            else:
+                st.info(f"💡 {graph_exercise} 기록이 아직 없습니다. 첫 기록을 등록해보세요!")
+
+        with tab3:
+            st.write("#### 상세 기록 조회 및 삭제")
             my_exercises = sorted(my_data['exercise'].unique().tolist())
-            selected_history_ex = st.selectbox("조회할 종목", ["전체 보기"] + my_exercises, key="history_filter")
+            selected_history_ex = st.selectbox("종목 필터", ["전체 보기"] + my_exercises, key="history_filter")
             
             history_display_df = my_data if selected_history_ex == "전체 보기" else my_data[my_data['exercise'] == selected_history_ex]
             history_display_df = history_display_df.sort_values(by=['date', 'exercise'], ascending=[False, True])
             
-            # 삭제를 위한 인터페이스
+            st.write("---")
             for idx, row in history_display_df.iterrows():
                 col1, col2, col3 = st.columns([2, 1, 0.5])
                 with col1:
                     st.markdown(f"**{row['date']}** | {row['exercise']}")
-                    
-                    # 메모 처리 로직
+                    # 메모 NaN 및 빈값 처리
                     memo_val = str(row['memo']).strip()
-                    if memo_val and memo_val != 'nan' and memo_val != '':
+                    if memo_val and memo_val.lower() != 'nan' and memo_val != '':
                         st.caption(f"📝 {memo_val}")
                     else:
-                        st.caption("📝 기록된 메모가 없습니다.") # ← NaN 대신 나올 멘트
-                        
+                        st.caption("📝 기록된 메모가 없습니다.")
                 with col2:
                     st.markdown(f"`{row['weight']} lb`")
                 with col3:
@@ -295,15 +301,19 @@ if st.session_state.is_auth:
                         st.rerun()
                 st.divider()
 
-    st.divider()
+    else:
+        st.info("아직 등록된 기록이 없습니다. 아래에서 첫 기록을 입력해보세요!")
 
-    st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
+    st.divider()
+    # 맨 위로 가기 버튼
+    st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer; color:#333;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
 
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
