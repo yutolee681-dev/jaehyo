@@ -54,7 +54,8 @@ def get_full_data():
 
 def get_comments():
     try:
-        c_df = conn.read(worksheet="comments", ttl=0)
+        # spreadsheet=SHEET_URL 추가
+        c_df = conn.read(spreadsheet=SHEET_URL, worksheet="comments", ttl=0)
         return c_df if c_df is not None else pd.DataFrame(columns=['name', 'comment', 'date'])
     except:
         return pd.DataFrame(columns=['name', 'comment', 'date'])
@@ -158,7 +159,7 @@ if st.session_state.is_auth:
                 "date": kst_now.strftime("%m/%d %H:%M")
             }])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
-            conn.update(worksheet="comments", data=all_comments)
+            conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=all_comments)
             st.success("댓글 등록 완료!")
             time.sleep(1)
             st.rerun()
@@ -294,6 +295,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
