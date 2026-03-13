@@ -160,7 +160,7 @@ if st.session_state.is_auth:
 
     st.divider()
 
-    # --- 7. 기록 업데이트 ---
+# --- 7. 기록 업데이트 (종목 변경 시 자동 초기화 및 1열 배치) ---
     st.subheader("💪 오늘의 기록 업데이트")
     save_exercise = st.selectbox("종목 선택", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
@@ -169,28 +169,50 @@ if st.session_state.is_auth:
     
     if prev_max > 0:
         st.info(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
-        percents = list(range(50, 101, 5))
-        col1, col2 = st.columns(2)
-        for i, p in enumerate(percents):
-            calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-            if i % 2 == 0:
-                with col1: st.metric(label=f"{p}%", value=f"{calc_w} lb")
-            else:
-                with col2: st.metric(label=f"{p}%", value=f"{calc_w} lb")
+        
+        # [수정 포인트] 퍼센트 계산 및 1열 순차 출력
+        percents = list(range(50, 101, 5)) # 50, 55, 60 ... 100
+        
+        with st.expander("📊 퍼센트별 중량 확인 (50% ~ 100%)", expanded=True):
+            for p in percents:
+                calc_w = round((prev_max * p / 100) / 2.5) * 2.5
+                # columns 없이 바로 metric을 호출하면 위에서 아래로 1열 정렬됩니다.
+                st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
-    new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0, key=f"weight_{save_exercise}")
-    new_memo = st.text_input("오늘의 메모", value="", placeholder="예: 무릎 컨디션 좋음, 스트랩 사용", key=f"memo_{save_exercise}")
+
+    # 입력창 (기존 로직 유지)
+    new_weight = st.number_input(
+        f"오늘의 {save_exercise} 중량 (lbs)", 
+        value=prev_max, 
+        step=5.0, 
+        key=f"weight_{save_exercise}"
+    )
+    
+    new_memo = st.text_input(
+        "오늘의 메모", 
+        value="",
+        placeholder="예: 컨디션 좋음, 스트랩 사용 등", 
+        key=f"memo_{save_exercise}"
+    )
     
     if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
         if new_weight > 0:
             user_data = df[df['name'] == st.session_state.user_name]
-            final_pw = str(user_data.iloc[-1]['password']) if not user_data.empty else st.session_state.get('temp_pw', '0000')
+            # 최근 데이터에서 비밀번호와 성별 가져오기
+            last_row = user_data.iloc[-1] if not user_data.empty else None
+            final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
+            
             new_record = pd.DataFrame([{
-                "name": st.session_state.user_name, "exercise": save_exercise, "weight": new_weight, 
-                "date": datetime.now().strftime("%Y-%m-%d"), "password": final_pw, 
-                "gender": st.session_state.user_gender, "memo": new_memo 
+                "name": st.session_state.user_name, 
+                "exercise": save_exercise, 
+                "weight": new_weight, 
+                "date": datetime.now().strftime("%Y-%m-%d"), 
+                "password": final_pw, 
+                "gender": st.session_state.user_gender,
+                "memo": new_memo 
             }])
+            
             updated_df = pd.concat([df, new_record], ignore_index=True)
             conn.update(worksheet="sheet1", data=updated_df)
             st.balloons()
@@ -204,4 +226,5 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
