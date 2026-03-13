@@ -159,7 +159,7 @@ if st.session_state.is_auth:
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
             # 라벨을 숨기고 입력창 높이를 최적화
-            new_comment = st.text_input("댓글", placeholder="파이팅! 응원을 남겨주세요", label_visibility="collapsed")
+            new_comment = st.text_input("댓글", placeholder="예) 재효님 클린 ㅎㄷㄷ!!", label_visibility="collapsed")
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         
@@ -396,6 +396,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
