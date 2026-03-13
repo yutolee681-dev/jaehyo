@@ -198,25 +198,6 @@ if not comments_df.empty:
 
 st.divider()
 
-if not comments_df.empty:
-    with st.expander("최근 댓글 보기", expanded=True):
-        display_comments = comments_df.sort_index(ascending=False).head(10)
-        for idx, row in display_comments.iterrows():
-            c_col1, c_col2 = st.columns([5, 1])
-            with c_col1:
-                st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
-                st.info(row['comment'])
-            with c_col2:
-                if st.session_state.is_auth and st.session_state.user_name == row['name']:
-                    if st.button("🗑️", key=f"del_{idx}"):
-                        updated_comments = comments_df.drop(idx)
-                        conn.update(worksheet="comments", data=updated_comments)
-                        st.warning("삭제됨")
-                        time.sleep(1)
-                        st.rerun()
-
-st.divider()
-
 # --- 6. 사용자 인증 ---
 if not st.session_state.is_auth:
     with st.container():
@@ -396,6 +377,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
