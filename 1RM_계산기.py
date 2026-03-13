@@ -271,8 +271,8 @@ if st.session_state.is_auth:
             else:
                 st.info(f"💡 {graph_exercise} 기록이 아직 없습니다. 첫 기록을 등록해보세요!")
 
-        with tab3:
-            st.write("#### 상세 기록 조회 및 삭제")
+with tab3:
+            st.write("#### 상세 기록 조회 및 수정/삭제")
             my_exercises = sorted(my_data['exercise'].unique().tolist())
             selected_history_ex = st.selectbox("종목 필터", ["전체 보기"] + my_exercises, key="history_filter")
             
@@ -280,11 +280,30 @@ if st.session_state.is_auth:
             history_display_df = history_display_df.sort_values(by=['date', 'exercise'], ascending=[False, True])
             
             st.write("---")
+
+            # --- 수정용 팝업 함수 (st.dialog) ---
+            @st.dialog("기록 수정하기")
+            def edit_record(record_idx, old_weight, old_memo, old_date, old_ex):
+                new_w = st.number_input("중량 (lb)", value=int(old_weight), step=5)
+                new_m = st.text_input("메모", value=old_memo)
+                new_d = st.date_input("날짜", value=old_date)
+                
+                if st.button("수정 완료", use_container_width=True):
+                    # 전체 데이터프레임(df)에서 해당 인덱스 값 업데이트
+                    df.at[record_idx, 'weight'] = new_w
+                    df.at[record_idx, 'memo'] = new_m
+                    df.at[record_idx, 'date'] = new_d.strftime("%Y-%m-%d")
+                    
+                    conn.update(worksheet="sheet1", data=df)
+                    st.success("기록이 수정되었습니다!")
+                    time.sleep(1)
+                    st.rerun()
+
+            # 기록 리스트 출력
             for idx, row in history_display_df.iterrows():
-                col1, col2, col3 = st.columns([2, 1, 0.5])
+                col1, col2, col3 = st.columns([2, 0.7, 0.8]) # 수정 버튼을 위해 칸 조절
                 with col1:
                     st.markdown(f"**{row['date']}** | {row['exercise']}")
-                    # 메모 NaN 및 빈값 처리
                     memo_val = str(row['memo']).strip()
                     if memo_val and memo_val.lower() != 'nan' and memo_val != '':
                         st.caption(f"📝 {memo_val}")
@@ -293,12 +312,18 @@ if st.session_state.is_auth:
                 with col2:
                     st.markdown(f"`{row['weight']} lb`")
                 with col3:
-                    if st.button("🗑️", key=f"record_del_{idx}"):
-                        updated_df = df.drop(idx)
-                        conn.update(worksheet="sheet1", data=updated_df)
-                        st.warning("기록이 삭제되었습니다.")
-                        time.sleep(1)
-                        st.rerun()
+                    # 수정 버튼과 삭제 버튼을 나란히 배치
+                    btn_col1, btn_col2 = st.columns(2)
+                    with btn_col1:
+                        if st.button("✏️", key=f"edit_{idx}"):
+                            edit_record(idx, row['weight'], row['memo'], row['date'], row['exercise'])
+                    with btn_col2:
+                        if st.button("🗑️", key=f"del_{idx}"):
+                            updated_df = df.drop(idx)
+                            conn.update(worksheet="sheet1", data=updated_df)
+                            st.warning("삭제되었습니다.")
+                            time.sleep(1)
+                            st.rerun()
                 st.divider()
 
     else:
@@ -350,6 +375,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
