@@ -72,7 +72,7 @@ if st.session_state.is_auth:
         st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (여성 왼쪽 / 남성 오른쪽) ---
+# --- 4. 실시간 전체 랭킹 (모바일 가로 고정 레이아웃) ---
 st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
@@ -80,24 +80,33 @@ rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-rank_col_female, rank_col_male = st.columns(2)
+# 데이터 분리
+female_ranks = best_rank_df[best_rank_df['gender'] == "여성"].sort_values(by='weight', ascending=False)
+male_ranks = best_rank_df[best_rank_df['gender'] == "남성"].sort_values(by='weight', ascending=False)
 
-def display_full_rank(data, title, icon):
-    st.markdown(f"#### {icon} {title}")
-    sd = data.sort_values(by='weight', ascending=False)
-    if sd.empty:
-        st.info("등록된 기록이 없습니다.")
+# ✅ 모바일에서도 가로 배치를 강제하는 HTML/CSS
+def generate_rank_html(data, title, icon):
+    html = f"<div style='flex: 1; min-width: 0; padding: 5px; border: 1px solid #ddd; border-radius: 10px; margin: 2px;'>"
+    html += f"<h4 style='text-align: center; margin-bottom: 10px;'>{icon} {title}</h4>"
+    if data.empty:
+        html += "<p style='text-align: center; color: gray;'>없음</p>"
     else:
-        with st.container(border=True):
-            for i, row in enumerate(sd.itertuples(), 1):
-                medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"**{get_ordinal(i)}**")
-                name_style = f"color:#29b5e8; font-weight:bold;" if st.session_state.user_name == row.name else ""
-                st.markdown(f"{medal} <span style='{name_style}'>{row.name}</span> : `{row.weight} lb`", unsafe_allow_html=True)
+        for i, row in enumerate(data.itertuples(), 1):
+            medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"<b>{i}th</b>")
+            name_color = "#29b5e8" if st.session_state.user_name == row.name else "inherit"
+            html += f"<div style='font-size: 0.85rem; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>"
+            html += f"{medal} <span style='color:{name_color}; font-weight:bold;'>{row.name}</span><br><span style='font-family: monospace;'>{row.weight}lb</span>"
+            html += "</div>"
+    html += "</div>"
+    return html
 
-with rank_col_female:
-    display_full_rank(best_rank_df[best_rank_df['gender'] == "여성"], "FEMALE", "♀️")
-with rank_col_male:
-    display_full_rank(best_rank_df[best_rank_df['gender'] == "남성"], "MALE", "♂️")
+# ♀️ 왼쪽(Female) ♂️ 오른쪽(Male) 배치 강제
+st.markdown(f"""
+    <div style="display: flex; flex-direction: row; align-items: flex-start; width: 100%;">
+        {generate_rank_html(female_ranks, "FEMALE", "♀️")}
+        {generate_rank_html(male_ranks, "MALE", "♂️")}
+    </div>
+    """, unsafe_allow_html=True)
 
 st.divider()
 
@@ -154,7 +163,7 @@ if not st.session_state.is_auth:
                 st.session_state.temp_pw = str(n_pw)
                 st.rerun()
 
-# --- 7. 개인 차트 및 상세 기록 (여기가 복구된 부분!) ---
+# --- 7. 개인 차트 및 상세 기록 ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
@@ -167,7 +176,6 @@ if st.session_state.is_auth:
         text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
         st.altair_chart(bars + text, use_container_width=True)
         
-        # ✅ 상세 기록 테이블 복구 완료!
         with st.expander("📋 나의 상세 운동 기록 전체 보기"):
             my_exs = sorted(my_data['exercise'].unique().tolist())
             sel_ex = st.selectbox("종목 필터", ["전체 보기"] + my_exs)
@@ -189,7 +197,7 @@ if st.session_state.is_auth:
             for i, p in enumerate(percents):
                 calc_w = round((p_max * p / 100) / 2.5) * 2.5
                 target_col = m_col1 if i % 2 == 0 else m_col2
-                target_col.markdown(f"<small style='color:gray;'>{p}%</small> <b style='font-size:1.2rem;'>{calc_w}</b> <small>lb</small>", unsafe_allow_html=True)
+                target_col.markdown(f"<small style='color:gray;'>{p}%</small> <b style='font-size:1.1rem;'>{calc_w}</b> <small>lb</small>", unsafe_allow_html=True)
     
     new_w = st.number_input("기록 입력 (lbs)", value=p_max, step=5.0)
     new_m = st.text_input("메모", placeholder="컨디션 등")
