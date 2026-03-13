@@ -8,74 +8,72 @@ import time
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="wide")
 
-# --- 커스텀 CSS (UI 대공사: 폰에서도 무조건 남좌여우) ---
+# --- 커스텀 CSS (모바일 가로배치 고정 + UI 최적화) ---
 st.markdown("""
     <style>
-    [data-testid="stAppViewContainer"] { background-color: #f1f3f5; }
+    [data-testid="stAppViewContainer"] { background-color: #f5f7f9; }
     
-    .ranking-container {
+    /* 랭킹 전체 감싸는 박스 */
+    .rank-wrapper {
         display: flex;
-        flex-direction: row; /* 가로 배치 강제 */
-        gap: 8px;
+        flex-direction: row; /* 무조건 가로로 */
+        gap: 10px;
         width: 100%;
-        margin-top: 10px;
+        margin: 10px 0;
     }
     
-    .rank-box {
+    /* 개별 카드 스타일 */
+    .rank-card {
         flex: 1;
         background: white;
         padding: 12px 8px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        min-width: 0; /* 좁은 화면 대응 */
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        border: 1px solid #e1e4e8;
+        min-width: 0;
     }
     
     .rank-header {
         text-align: center;
         font-weight: 800;
-        font-size: 1rem;
-        color: #333;
-        border-bottom: 2px solid #eee;
+        font-size: 0.95rem;
+        padding-bottom: 8px;
         margin-bottom: 10px;
-        padding-bottom: 5px;
+        border-bottom: 2px solid #f0f2f6;
     }
     
-    .rank-entry {
+    /* 랭킹 한 줄(이름...무게) */
+    .rank-row {
         display: flex;
-        justify-content: space-between; /* 이름 왼쪽, 무게 오른쪽 */
+        justify-content: space-between;
         align-items: center;
-        padding: 6px 4px;
-        border-bottom: 1px solid #f9f9f9;
+        padding: 8px 4px;
+        border-bottom: 1px solid #f8f9fa;
     }
     
-    .name-tag {
-        font-size: 0.85rem;
+    .rank-name {
+        font-size: 0.8rem;
         font-weight: 600;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        margin-right: 4px;
+        color: #333;
     }
     
-    .weight-tag {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: #1a73e8;
+    .rank-weight {
+        font-size: 0.85rem;
+        font-weight: 800;
+        color: #007bff;
         flex-shrink: 0;
+        margin-left: 5px;
     }
     
-    .my-row { background-color: #e8f0fe; border-radius: 4px; }
+    /* 내 기록 강조 */
+    .is-me { background-color: #e7f3ff; border-radius: 6px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 보조 함수 ---
-def get_ordinal(n):
-    if 11 <= n % 100 <= 13: return f"{n}th"
-    return f"{n}" + {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
-
-exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press", "Thruster", "Bench Press", "Jerk", "Overhead Squat"]
-
-# 2. 구글 시트 연결
+# 2. 데이터 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_data():
@@ -88,92 +86,105 @@ def get_data():
 
 df = get_data()
 
-if 'is_auth' not in st.session_state: st.session_state.is_auth, st.session_state.user_name, st.session_state.user_gender = False, "", "남성"
+if 'is_auth' not in st.session_state: 
+    st.session_state.is_auth, st.session_state.user_name, st.session_state.user_gender = False, "", "남성"
 
 st.title("🏋️ 1RM 보관함")
 
-# --- 4. 랭킹 섹션 (남좌여우 고정) ---
-st.subheader("🏆 실시간 랭킹")
-sel_ex = st.selectbox("종목 선택", exercise_list, index=0)
+# --- 4. 랭킹 섹션 (남좌여우 가로 배치) ---
+st.subheader("🏆 박스 실시간 랭킹")
+exercise_list = ["Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", "Deadlift", "Back Squat", "Shoulder Press", "Thruster", "Bench Press", "Jerk", "Overhead Squat"]
+sel_ex = st.selectbox("종목 선택", exercise_list)
 
 r_df = df[df['exercise'] == sel_ex].copy()
 r_df['weight'] = pd.to_numeric(r_df['weight'], errors='coerce')
 best_df = r_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-m_list = best_df[best_df['gender'] == "남성"]
-f_list = best_df[best_df['gender'] == "여성"]
+m_data = best_df[best_df['gender'] == "남성"]
+f_data = best_df[best_df['gender'] == "여성"]
 
-def build_rank_card(data, label, icon):
-    content = f"<div class='rank-box'><div class='rank-header'>{icon} {label}</div>"
+# ✅ HTML 태그 에러 방지를 위해 f-string 대신 조립 방식 사용
+def render_rank_card(data, label, icon):
+    rows_html = ""
     if data.empty:
-        content += "<div style='text-align:center; font-size:0.8rem; color:gray;'>기록 없음</div>"
+        rows_html = "<div style='text-align:center;color:gray;font-size:0.8rem;'>기록 없음</div>"
     else:
         for i, row in enumerate(data.itertuples(), 1):
-            is_me = "my-row" if st.session_state.user_name == row.name else ""
             medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"{i}.")
-            content += f"""
-            <div class='rank-entry {is_me}'>
-                <div class='name-tag'>{medal} {row.name}</div>
-                <div class='weight-tag'>{int(row.weight)}lb</div>
+            me_class = "is-me" if st.session_state.user_name == row.name else ""
+            rows_html += f"""
+            <div class='rank-row {me_class}'>
+                <span class='rank-name'>{medal} {row.name}</span>
+                <span class='rank-weight'>{int(row.weight)} lb</span>
             </div>
             """
-    content += "</div>"
-    return content
+    
+    return f"""
+    <div class='rank-card'>
+        <div class='rank-header'>{icon} {label}</div>
+        {rows_html}
+    </div>
+    """
 
-# ✅ 요청하신 대로 왼쪽 남자(MALE), 오른쪽 여자(FEMALE) 고정
+# ✅ 남자가 왼쪽(Male), 여자가 오른쪽(Female) 고정 배치
 st.markdown(f"""
-    <div class='ranking-container'>
-        {build_rank_card(m_list, "MALE", "♂️")}
-        {build_rank_card(f_list, "FEMALE", "♀️")}
+    <div class='rank-wrapper'>
+        {render_rank_card(m_data, "MALE", "♂️")}
+        {render_rank_card(f_data, "FEMALE", "♀️")}
     </div>
     """, unsafe_allow_html=True)
 
 st.divider()
 
-# --- 6. 인증 ---
+# --- 6. 인증 및 로그인 ---
 if not st.session_state.is_auth:
     st.subheader("👤 입장하기")
-    m = st.radio("로그인 방식", ["기존", "신규"], horizontal=True)
-    if m == "기존":
+    m = st.radio("방식", ["로그인", "신규등록"], horizontal=True)
+    if m == "로그인":
         u_list = sorted(df['name'].unique().tolist()) if not df.empty else []
         s_name = st.selectbox("이름", ["선택"] + u_list)
-        pw_in = st.text_input("비번", type="password")
-        if st.button("로그인", use_container_width=True):
-            stored = str(df[df['name'] == s_name].iloc[-1]['password']).strip()
-            if pw_in.strip() == stored:
-                st.session_state.is_auth, st.session_state.user_name, st.session_state.user_gender = True, s_name, df[df['name'] == s_name].iloc[-1]['gender']
-                st.rerun()
-            else: st.error("비번 오류")
+        pw_in = st.text_input("비밀번호", type="password")
+        if st.button("들어가기", use_container_width=True):
+            user_rows = df[df['name'] == s_name]
+            if not user_rows.empty:
+                stored = str(user_rows.iloc[-1]['password']).strip()
+                if pw_in.strip() == stored:
+                    st.session_state.is_auth, st.session_state.user_name = True, s_name
+                    st.session_state.user_gender = user_rows.iloc[-1]['gender']
+                    st.rerun()
+                else: st.error("비밀번호가 틀렸습니다.")
     else:
         c1, c2 = st.columns(2)
-        n_n, n_p = c1.text_input("새이름"), c2.text_input("새비번", type="password")
+        n_n, n_p = c1.text_input("새 이름"), c2.text_input("비번 설정", type="password")
         n_g = st.radio("성별", ["남성", "여성"], horizontal=True)
-        if st.button("가입완료", use_container_width=True) and n_n and n_p:
+        if st.button("가입 후 입장", use_container_width=True) and n_n and n_p:
             st.session_state.is_auth, st.session_state.user_name, st.session_state.user_gender = True, n_n, n_g
             st.session_state.temp_pw = str(n_p)
             st.rerun()
 
-# --- 7. 개인 데이터 ---
+# --- 7. 개인 데이터 및 저장 ---
 if st.session_state.is_auth:
     my = df[df['name'] == st.session_state.user_name].copy()
+    
+    st.subheader(f"💪 {st.session_state.user_name}님의 기록")
     if not my.empty:
-        st.write(f"📊 **{st.session_state.user_name}**님의 최고 기록")
-        with st.expander("📋 상세 기록 (전체보기)"):
+        with st.expander("📋 나의 전체 기록 보기"):
             st.dataframe(my[['date', 'exercise', 'weight', 'memo']].sort_values('date', ascending=False), hide_index=True, use_container_width=True)
+    
+    # 기록 저장
+    with st.container(border=True):
+        st.write("**오늘의 기록 저장**")
+        sc1, sc2 = st.columns(2)
+        save_ex = sc1.selectbox("종목", exercise_list, key="save_ex")
+        new_w = sc2.number_input("무게(lb)", step=5.0)
+        new_m = st.text_input("메모")
+        if st.button("저장하기", use_container_width=True) and new_w > 0:
+            rows = df[df['name'] == st.session_state.user_name]
+            pw = str(rows['password'].iloc[0]) if not rows.empty else st.session_state.get('temp_pw', '0000')
+            new_row = pd.DataFrame([{"name": st.session_state.user_name, "exercise": save_ex, "weight": new_w, "date": (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d"), "password": pw, "gender": st.session_state.user_gender, "memo": new_m}])
+            conn.update(worksheet="sheet1", data=pd.concat([df, new_row], ignore_index=True))
+            st.success("기록 완료!"); time.sleep(1); st.rerun()
 
-    st.divider()
-
-    # --- 8. 저장 ---
-    st.subheader("💪 오늘 기록 저장")
-    ex = st.selectbox("종목", exercise_list)
-    wt = st.number_input("중량(lb)", step=5.0)
-    mm = st.text_input("메모")
-    if st.button("저장!", use_container_width=True) and wt > 0:
-        rows = df[df['name'] == st.session_state.user_name]
-        pw = str(rows['password'].iloc[0]) if not rows.empty else st.session_state.get('temp_pw', '0000')
-        new = pd.DataFrame([{"name": st.session_state.user_name, "exercise": ex, "weight": wt, "date": (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d"), "password": pw, "gender": st.session_state.user_gender, "memo": mm}])
-        conn.update(worksheet="sheet1", data=pd.concat([df, new], ignore_index=True))
-        st.success("저장 완료!"); time.sleep(1); st.rerun()
-
+# --- 8. Admin ---
 with st.expander("🛠 Admin"):
     if st.text_input("Key", type="password") == "5207": st.dataframe(df)
