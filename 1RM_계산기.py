@@ -118,12 +118,13 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = new_pw
                     st.rerun()
 
-# --- 6. 개인 차트 시인성 개선 버전 ---
+# --- 6. 개인 차트 가독성 개선 버전 (다크모드 지원) ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
     
     if not my_data.empty:
+        # 차트 데이터 준비 (기존 로직 유지)
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         
@@ -132,7 +133,7 @@ if st.session_state.is_auth:
         # 차트 기본 설정
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
-            x=alt.X('weight:Q', title="중량 (lbs)", scale=alt.Scale(nice=True)) # 여백 자동 조절
+            x=alt.X('weight:Q', title="중량 (lbs)")
         )
 
         # 막대 그래프
@@ -142,14 +143,14 @@ if st.session_state.is_auth:
         text = base.mark_text(
             align='right',   # 오른쪽 정렬
             dx=-5,           # 막대 끝에서 안쪽으로 5픽셀 이동
-            color='white',   # 배경이 하늘색이니 글자는 흰색이 잘 보임
+            color='white',   # 배경이 하늘색이니 글자는 흰색이 가장 잘 보임 (다크모드 포함)
             fontWeight='bold'
         ).encode(
             text=alt.Text('weight:Q', format='.0f') # 소수점 없이 깔끔하게
         )
         
-        # 차트 높이를 모바일에 맞게 약간 조절 (필요시 height 조정)
-        st.altair_chart((bars + text).properties(height=400), use_container_width=True)
+        # 막대와 텍스트를 합쳐서 출력
+        st.altair_chart(bars + text, use_container_width=True)
         
         # 히스토리 필터링 로직 (기존 유지)
         st.divider()
@@ -228,6 +229,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
