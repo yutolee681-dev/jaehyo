@@ -313,16 +313,15 @@ if st.session_state.is_auth:
                     st.rerun()
 
             # 기록 리스트 출력 (모바일 최적화 버전)
-# --- 여기부터 복사해서 교체하세요 ---
             for idx, row in history_display_df.iterrows():
-                # 1. 정보 영역 (날짜, 종목, 무게를 한 줄에 표시)
+                # 1. 정보 표시 (날짜, 종목, 무게)
                 m_val = str(row['memo']).strip()
                 memo_text = f"📝 {m_val}" if m_val and m_val.lower() != 'nan' and m_val != '' else "📝 기록 없음"
                 
-                # HTML로 날짜와 무게를 예쁘게 한 줄로 정렬
+                # HTML로 상단 정보를 가로로 배치 (무게를 파란색으로 강조)
                 st.markdown(f"""
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
-                    <div style="line-height: 1.4;">
+                    <div>
                         <span style="font-size: 0.9rem; font-weight: bold;">{row['date']}</span> | 
                         <span style="font-size: 0.9rem;">{row['exercise']}</span><br>
                         <span style="font-size: 0.75rem; color: #888;">{memo_text}</span>
@@ -333,25 +332,22 @@ if st.session_state.is_auth:
                 </div>
                 """, unsafe_allow_html=True)
 
-                # 2. 버튼 영역 (가로로 작게 배치)
-                # 컬럼 비율을 0.15 정도로 아주 작게 줘야 모바일에서 옆으로 붙습니다.
-                btn_col1, btn_col2, btn_spacer = st.columns([0.15, 0.15, 0.7])
+                # 2. 버튼 영역 (모바일에서 강제로 가로 5:5 배치)
+                btn_col1, btn_col2 = st.columns([1, 1]) # 1:1 비율이 모바일에서 가장 잘 붙습니다.
                 
                 with btn_col1:
-                    # use_container_width를 False로 해야 버튼이 안 커집니다.
-                    if st.button("✏️", key=f"edit_{idx}"):
+                    # use_container_width=True를 써서 버튼이 칸을 꽉 채우게 함
+                    if st.button("✏️ 수정", key=f"edit_{idx}", use_container_width=True):
                         edit_record(idx, row['weight'], row['memo'], row['date'], row['exercise'])
                 
                 with btn_col2:
-                    if st.button("🗑️", key=f"del_{idx}"):
+                    if st.button("🗑️ 삭제", key=f"del_{idx}", use_container_width=True):
                         updated_df = df.drop(idx)
                         conn.update(worksheet="sheet1", data=updated_df)
-                        st.warning("삭제됨")
-                        time.sleep(1)
                         st.rerun()
                 
-                # 아주 얇은 구분선
-                st.markdown("<hr style='margin: 10px 0; border: 0.1px solid #333; opacity: 0.3;'>", unsafe_allow_html=True)
+                # 깔끔한 구분선
+                st.markdown("<hr style='margin: 10px 0; border: 0.1px solid #333; opacity: 0.2;'>", unsafe_allow_html=True)
 
     else:
         st.info("아직 등록된 기록이 없습니다. 아래에서 첫 기록을 입력해보세요!")
@@ -402,6 +398,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
