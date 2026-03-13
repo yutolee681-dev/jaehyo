@@ -71,7 +71,7 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 랭킹 ---
+# --- 4. 실시간 랭킹 (남/여 병렬 배치) ---
 st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
@@ -79,19 +79,29 @@ rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-with st.expander(f"🔥 {selected_rank_exercise} TOP 5", expanded=True):
+with st.expander(f"🔥 {selected_rank_exercise} 실시간 순위", expanded=True):
     if not best_rank_df.empty:
-        tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
-        def display_rank(data):
+        # 왼쪽/오른쪽 단 분할
+        col_m, col_f = st.columns(2)
+        
+        def display_rank_list(data, title_icon):
+            st.markdown(f"#### {title_icon}")
             sorted_data = data.sort_values(by='weight', ascending=False).head(5)
-            if sorted_data.empty: st.write("기록 없음")
+            if sorted_data.empty:
+                st.write("기록 없음")
             else:
                 for i, row in enumerate(sorted_data.itertuples(), 1):
-                    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
-                    st.markdown(f"{medal} **{row.name}** : `{row.weight} lbs` ")
-        with tab_m: display_rank(best_rank_df[best_rank_df['gender'] == "남성"])
-        with tab_f: display_rank(best_rank_df[best_rank_df['gender'] == "여성"])
-    else: st.write("첫 주인공이 되어보세요!")
+                    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}**"
+                    # 가독성을 위해 중량은 코드 블록(` `) 처리
+                    st.markdown(f"{medal} **{row.name}** : `{row.weight} lb` ")
+
+        with col_m:
+            display_rank_list(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
+            
+        with col_f:
+            display_rank_list(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
+    else:
+        st.write("첫 주인공이 되어보세요!")
 
 st.divider()
 
@@ -254,4 +264,5 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
