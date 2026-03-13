@@ -313,50 +313,52 @@ if st.session_state.is_auth:
                     st.rerun()
 
             # 기록 리스트 출력 (모바일 최적화 버전)
-            # --- 기록 관리 리스트 최종 수정 버전 ---
             for idx, row in history_display_df.iterrows():
-                # 1. 정보 표시 레이아웃
+                # 1. 정보 표시 (날짜, 종목, 무게 한 줄 배치)
                 m_val = str(row['memo']).strip()
-                # 메모 가독성 강화: 글자 크기 키우고 배경색 추가
-                if m_val and m_val.lower() != 'nan' and m_val != '':
-                    memo_html = f"""
-                    <div style='margin-top: 8px; font-size: 1rem; color: #ffffff; background-color: #3d3d3d; 
-                                padding: 8px 12px; border-radius: 8px; border-left: 4px solid #29b5e8;'>
-                        📝 {m_val}
-                    </div>"""
-                else:
-                    memo_html = "<div style='margin-top: 5px; font-size: 0.9rem; color: #777;'>📝 기록 없음</div>"
                 
-                # 날짜, 종목, 무게 한 줄 배치
+                # 상단 레이아웃 (날짜/종목 vs 무게)
                 st.markdown(f"""
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="line-height: 1.5;">
-                        <span style="font-size: 1rem; font-weight: bold; color: #eee;">{row['date']}</span> | 
-                        <span style="font-size: 1rem; color: #ccc;">{row['exercise']}</span>
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2px;">
+                    <div style="line-height: 1.2;">
+                        <span style="font-size: 1.1rem; font-weight: bold; color: #eee;">{row['date']}</span> 
+                        <span style="font-size: 1rem; color: #bbb; margin-left: 5px;">| {row['exercise']}</span>
                     </div>
-                    <div style="font-size: 1.2rem; font-weight: bold; color: #29b5e8;">
-                        {row['weight']} <span style="font-size: 0.8rem;">lb</span>
+                    <div style="font-size: 1.3rem; font-weight: bold; color: #29b5e8;">
+                        {row['weight']} <span style="font-size: 0.9rem;">lb</span>
                     </div>
                 </div>
-                {memo_html}
                 """, unsafe_allow_html=True)
 
-                # 2. 버튼 배치 (가로 고정을 위한 간격 조정)
-                st.write("") # 버튼 위 약간의 간격
-                # 버튼을 [1, 1, 1]로 나누고 마지막을 비워두면 모바일에서 옆으로 잘 붙습니다.
-                b_col1, b_col2, b_spacer = st.columns([1, 1, 0.1])
+                # 2. 메모 영역 (글자 크기 대폭 확대 및 강조)
+                if m_val and m_val.lower() != 'nan' and m_val != '':
+                    st.markdown(f"""
+                    <div style='margin: 8px 0; font-size: 1.1rem; color: #ffffff; background-color: #333; 
+                                padding: 10px 15px; border-radius: 8px; border-left: 5px solid #29b5e8; line-height: 1.4;'>
+                        📝 {m_val}
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.caption("📝 기록된 메모가 없습니다.")
+
+                # 3. 버튼 배치 (가로 5:5 비율로 바짝 붙이기)
+                # columns 비율을 [1, 1]로 주어야 모바일에서 옆으로 딱 붙습니다.
+                btn_col1, btn_col2 = st.columns([1, 1])
                 
-                with b_col1:
+                with btn_col1:
                     if st.button("✏️ 수정", key=f"edit_{idx}", use_container_width=True):
                         edit_record(idx, row['weight'], row['memo'], row['date'], row['exercise'])
                 
-                with b_col2:
+                with btn_col2:
                     if st.button("🗑️ 삭제", key=f"del_{idx}", use_container_width=True):
                         updated_df = df.drop(idx)
                         conn.update(worksheet="sheet1", data=updated_df)
+                        st.warning("삭제 중...")
+                        time.sleep(0.5)
                         st.rerun()
                 
-                st.markdown("<hr style='margin: 20px 0; border: 0.1px solid #444; opacity: 0.3;'>", unsafe_allow_html=True)
+                # 구분선 (간격을 좁게 조정)
+                st.markdown("<hr style='margin: 12px 0; border: 0.1px solid #444; opacity: 0.2;'>", unsafe_allow_html=True)
 
     else:
         st.info("아직 등록된 기록이 없습니다. 아래에서 첫 기록을 입력해보세요!")
@@ -407,6 +409,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
