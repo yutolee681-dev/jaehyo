@@ -88,6 +88,7 @@ st.divider()
 
 # --- 5. 사용자 인증 ---
 if not st.session_state.is_auth:
+    # (인증 로직 동일 - 생략 가능하지만 전체 코드 유지를 위해 포함)
     with st.container():
         st.subheader("👤 사용자 인증")
         input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
@@ -118,35 +119,21 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = new_pw
                     st.rerun()
 
-# --- 6. 개인 차트 및 누적 히스토리 (에러 수정됨) ---
+# --- 6. 개인 차트 및 누적 히스토리 ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
     
     if not my_data.empty:
-        # 1. 종목별 최고 기록 필터링
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-        
         st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
-        
-        # [수정 핵심] Altair 차트 레이어 방식 변경
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
             x=alt.X('weight:Q', title="중량 (lbs)")
         )
-
         bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
-        
-        # mark_text 안의 weight:Q 대신 텍스트 인코딩을 따로 분리하여 에러 방지
-        text = base.mark_text(
-            align='left',
-            dx=5,
-            color='black'
-        ).encode(
-            text='weight:Q'
-        )
-        
+        text = base.mark_text(align='left', dx=5, color='black').encode(text='weight:Q')
         st.altair_chart(bars + text, use_container_width=True)
         
         with st.expander("📋 나의 전체 운동 기록 히스토리"):
@@ -155,7 +142,7 @@ if st.session_state.is_auth:
 
     st.divider()
 
-    # --- 7. 기록 업데이트 ---
+    # --- 7. 기록 업데이트 (종목 변경 시 자동 초기화 로직 적용) ---
     st.subheader("💪 오늘의 기록 업데이트")
     save_exercise = st.selectbox("종목 선택", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
@@ -174,8 +161,23 @@ if st.session_state.is_auth:
                 with col2: st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
-    new_weight = st.number_input("오늘의 중량 (lbs)", value=0.0, step=5.0)
-    new_memo = st.text_input("오늘의 메모", placeholder="예: 무릎 컨디션 난조, 벨트 없이 성공!")
+
+    # [수정 핵심] key에 save_exercise를 포함하여 종목 변경 시 위젯이 리셋되도록 함
+    # 오늘의 중량은 기존 최고 기록(prev_max)을 기본값으로 제안
+    new_weight = st.number_input(
+        f"오늘의 {save_exercise} 중량 (lbs)", 
+        value=prev_max, 
+        step=5.0, 
+        key=f"weight_{save_exercise}"
+    )
+    
+    # 메모장은 깨끗하게 비워둠 (placeholder만 제공)
+    new_memo = st.text_input(
+        "오늘의 메모", 
+        value="",
+        placeholder="예: 컨디션 좋음, 스트랩 사용 등", 
+        key=f"memo_{save_exercise}"
+    )
     
     if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
         if new_weight > 0:
