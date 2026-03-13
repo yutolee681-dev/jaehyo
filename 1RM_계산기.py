@@ -118,56 +118,47 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = new_pw
                     st.rerun()
 
-# --- 6. 개인 차트 및 종목별 필터링 히스토리 (숫자 표시 강화) ---
+# --- 6. 개인 차트 시인성 개선 버전 ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
     
     if not my_data.empty:
-        # 1. 최고 기록 차트 데이터 준비
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         
         st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
         
-        # [수정 포인트] 차트 레이아웃 및 텍스트 표시
+        # 차트 기본 설정
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
-            x=alt.X('weight:Q', title="중량 (lbs)")
+            x=alt.X('weight:Q', title="중량 (lbs)", scale=alt.Scale(nice=True)) # 여백 자동 조절
         )
 
         # 막대 그래프
         bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
         
-        # 막대 끝에 무게(lbs) 숫자 텍스트 레이어 추가
+        # [개선 핵심] 숫자를 막대 안쪽(right-aligned)에 표시
         text = base.mark_text(
-            align='left',   # 막대 오른쪽에 정렬
-            dx=5,           # 막대 끝에서 5픽셀 정도 띄움
-            color='black',
+            align='right',   # 오른쪽 정렬
+            dx=-5,           # 막대 끝에서 안쪽으로 5픽셀 이동
+            color='white',   # 배경이 하늘색이니 글자는 흰색이 잘 보임
             fontWeight='bold'
         ).encode(
-            text=alt.Text('weight:Q', format='.1f') # 소수점 첫째자리까지 표시
+            text=alt.Text('weight:Q', format='.0f') # 소수점 없이 깔끔하게
         )
         
-        # 막대와 텍스트를 합쳐서 출력
-        st.altair_chart(bars + text, use_container_width=True)
+        # 차트 높이를 모바일에 맞게 약간 조절 (필요시 height 조정)
+        st.altair_chart((bars + text).properties(height=400), use_container_width=True)
         
-        # 2. 종목별 필터링 히스토리 (기존 로직 유지)
+        # 히스토리 필터링 로직 (기존 유지)
         st.divider()
         st.subheader("📋 상세 기록 조회")
         my_exercises = sorted(my_data['exercise'].unique().tolist())
-        selected_history_ex = st.selectbox(
-            "조회할 종목을 선택하세요", 
-            ["전체 보기"] + my_exercises,
-            key="history_filter"
-        )
+        selected_history_ex = st.selectbox("조회할 종목", ["전체 보기"] + my_exercises, key="history_filter")
         
-        if selected_history_ex == "전체 보기":
-            history_display_df = my_data[['date', 'exercise', 'weight', 'memo']]
-        else:
-            history_display_df = my_data[my_data['exercise'] == selected_history_ex][['date', 'weight', 'memo']]
-            
-        history_display_df = history_display_df.sort_values(by='date', ascending=False)
+        history_display_df = my_data if selected_history_ex == "전체 보기" else my_data[my_data['exercise'] == selected_history_ex]
+        history_display_df = history_display_df[['date', 'exercise', 'weight', 'memo']].sort_values(by='date', ascending=False)
         st.dataframe(history_display_df, hide_index=True, use_container_width=True)
 
     
@@ -237,6 +228,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
