@@ -71,7 +71,7 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 랭킹 (변수 선언 순서 조정됨) ---
+# --- 4. 실시간 랭킹 ---
 st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
@@ -95,7 +95,7 @@ with st.expander(f"🔥 {selected_rank_exercise} TOP 5", expanded=True):
 
 st.divider()
 
-# --- 5. 실시간 응원 댓글 (KST 시간 적용) ---
+# --- 5. 실시간 응원 댓글 (삭제 기능 추가) ---
 st.subheader("💬 실시간 응원 한마디")
 
 if st.session_state.is_auth:
@@ -114,21 +114,31 @@ if st.session_state.is_auth:
                 "date": kst_now.strftime("%m/%d %H:%M")
             }])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
-            try:
-                conn.update(worksheet="comments", data=all_comments)
-                st.success("댓글 등록 완료!")
-                time.sleep(1)
-                st.rerun()
-            except:
-                st.error("구글 시트에 'comments' 탭이 없습니다!")
+            conn.update(worksheet="comments", data=all_comments)
+            st.success("댓글 등록 완료!")
+            time.sleep(1)
+            st.rerun()
 else:
     st.info("로그인하면 댓글을 남길 수 있습니다.")
 
 if not comments_df.empty:
     with st.expander("최근 댓글 보기", expanded=True):
-        for _, row in comments_df.sort_index(ascending=False).head(5).iterrows():
-            st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
-            st.info(row['comment'])
+        # 최신순으로 정렬해서 보여주기
+        display_comments = comments_df.sort_index(ascending=False).head(10)
+        for idx, row in display_comments.iterrows():
+            c_col1, c_col2 = st.columns([5, 1])
+            with c_col1:
+                st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
+                st.info(row['comment'])
+            with c_col2:
+                # [본인 확인 로직] 본인이 쓴 댓글만 삭제 버튼 노출
+                if st.session_state.is_auth and st.session_state.user_name == row['name']:
+                    if st.button("🗑️", key=f"del_{idx}"):
+                        updated_comments = comments_df.drop(idx)
+                        conn.update(worksheet="comments", data=updated_comments)
+                        st.warning("댓글이 삭제되었습니다.")
+                        time.sleep(1)
+                        st.rerun()
 
 st.divider()
 
@@ -172,18 +182,17 @@ if st.session_state.is_auth:
     if not my_data.empty:
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-        st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
+        st.write(f"📊 {st.session_state.user_name}님의 최고 기록")
         
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
             x=alt.X('weight:Q', title="중량 (lbs)")
         )
         bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
-        # 다크모드 대응: 막대 안쪽에 흰색 글씨로 숫자 표시
         text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
         st.altair_chart(bars + text, use_container_width=True)
         
-        with st.expander("📋 상세 기록 조회 (종목별 필터)"):
+        with st.expander("📋 상세 기록 조회"):
             my_exercises = sorted(my_data['exercise'].unique().tolist())
             selected_history_ex = st.selectbox("조회할 종목", ["전체 보기"] + my_exercises, key="history_filter")
             history_display_df = my_data if selected_history_ex == "전체 보기" else my_data[my_data['exercise'] == selected_history_ex]
@@ -192,7 +201,7 @@ if st.session_state.is_auth:
 
     st.divider()
 
-    # --- 8. 기록 업데이트 (1열 배치 및 KST 시간 적용) ---
+    # --- 8. 기록 업데이트 ---
     st.subheader("💪 오늘의 기록 업데이트")
     
     try:
