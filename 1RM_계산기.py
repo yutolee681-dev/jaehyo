@@ -86,9 +86,8 @@ with st.expander(f"🔥 {selected_rank_exercise} TOP 5", expanded=True):
 
 st.divider()
 
-# --- 5. 사용자 인증 ---
+# --- 5. 사용자 인증 (생략 가능하지만 전체 코드 유지) ---
 if not st.session_state.is_auth:
-    # (인증 로직 동일 - 생략 가능하지만 전체 코드 유지를 위해 포함)
     with st.container():
         st.subheader("👤 사용자 인증")
         input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
@@ -119,7 +118,7 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = new_pw
                     st.rerun()
 
-# --- 6. 개인 차트 및 누적 히스토리 ---
+# --- 6. 개인 차트 및 종목별 소팅 히스토리 ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
@@ -136,13 +135,18 @@ if st.session_state.is_auth:
         text = base.mark_text(align='left', dx=5, color='black').encode(text='weight:Q')
         st.altair_chart(bars + text, use_container_width=True)
         
-        with st.expander("📋 나의 전체 운동 기록 히스토리"):
-            history_df = my_data[['date', 'exercise', 'weight', 'memo']].sort_values(by=['date', 'exercise'], ascending=False)
+        # [개선 핵심] 종목별 히스토리 소팅
+        with st.expander("📋 나의 운동 기록 히스토리 (종목별 보기)"):
+            # 종목 가나다순 -> 같은 종목 내에서는 날짜 최신순 정렬
+            history_df = my_data[['exercise', 'weight', 'date', 'memo']].sort_values(
+                by=['exercise', 'date'], 
+                ascending=[True, False]
+            )
             st.dataframe(history_df, hide_index=True, use_container_width=True)
 
     st.divider()
 
-    # --- 7. 기록 업데이트 (종목 변경 시 자동 초기화 로직 적용) ---
+    # --- 7. 기록 업데이트 ---
     st.subheader("💪 오늘의 기록 업데이트")
     save_exercise = st.selectbox("종목 선택", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
@@ -161,39 +165,18 @@ if st.session_state.is_auth:
                 with col2: st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
-
-    # [수정 핵심] key에 save_exercise를 포함하여 종목 변경 시 위젯이 리셋되도록 함
-    # 오늘의 중량은 기존 최고 기록(prev_max)을 기본값으로 제안
-    new_weight = st.number_input(
-        f"오늘의 {save_exercise} 중량 (lbs)", 
-        value=prev_max, 
-        step=5.0, 
-        key=f"weight_{save_exercise}"
-    )
-    
-    # 메모장은 깨끗하게 비워둠 (placeholder만 제공)
-    new_memo = st.text_input(
-        "오늘의 메모", 
-        value="",
-        placeholder="예: 컨디션 좋음, 스트랩 사용 등", 
-        key=f"memo_{save_exercise}"
-    )
+    new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0, key=f"weight_{save_exercise}")
+    new_memo = st.text_input("오늘의 메모", value="", placeholder="예: 무릎 컨디션 좋음, 스트랩 사용", key=f"memo_{save_exercise}")
     
     if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
         if new_weight > 0:
             user_data = df[df['name'] == st.session_state.user_name]
             final_pw = str(user_data.iloc[-1]['password']) if not user_data.empty else st.session_state.get('temp_pw', '0000')
-            
             new_record = pd.DataFrame([{
-                "name": st.session_state.user_name, 
-                "exercise": save_exercise, 
-                "weight": new_weight, 
-                "date": datetime.now().strftime("%Y-%m-%d"), 
-                "password": final_pw, 
-                "gender": st.session_state.user_gender,
-                "memo": new_memo 
+                "name": st.session_state.user_name, "exercise": save_exercise, "weight": new_weight, 
+                "date": datetime.now().strftime("%Y-%m-%d"), "password": final_pw, 
+                "gender": st.session_state.user_gender, "memo": new_memo 
             }])
-            
             updated_df = pd.concat([df, new_record], ignore_index=True)
             conn.update(worksheet="sheet1", data=updated_df)
             st.balloons()
