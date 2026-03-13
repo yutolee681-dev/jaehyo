@@ -6,7 +6,7 @@ import altair as alt
 import time
 
 # 0. 구글 시트 URL 설정 (본인의 시트 URL로 반드시 교체!)
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvXdBZjgmUUq1Mw1UE5LucjPp4K8/edit"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4/edit?gid=0#gid=0"
 
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
@@ -198,3 +198,4 @@ if st.session_state.is_auth:
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
     if st.text_input("Key", type="password") == "5207": st.dataframe(df)
+
