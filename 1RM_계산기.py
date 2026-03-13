@@ -34,10 +34,13 @@ rename_map = {
 
 # 2. 구글 시트 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
+# 변경 후
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
 def get_full_data():
     try:
-        raw_df = conn.read(worksheet="sheet1", ttl=0)
+        # spreadsheet=SHEET_URL 을 추가해서 확실하게 경로를 찍어줍니다.
+        raw_df = conn.read(spreadsheet=SHEET_URL, worksheet="sheet1", ttl=0)
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
@@ -291,6 +294,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
