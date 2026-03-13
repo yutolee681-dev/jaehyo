@@ -6,7 +6,7 @@ import altair as alt
 import time
 
 # 1. 페이지 설정
-st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="wide") # wide 필수
+st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="wide")
 
 # --- 서수(Ordinal) 변환 함수 ---
 def get_ordinal(n):
@@ -40,10 +40,8 @@ def get_full_data():
         raw_df = conn.read(worksheet="sheet1", ttl=0)
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
-        
         if 'password' in raw_df.columns:
             raw_df['password'] = raw_df['password'].astype(str).str.replace(".0", "", regex=False)
-            
         for col, default in {'password': '0000', 'gender': '남성', 'memo': ''}.items():
             if col not in raw_df.columns: raw_df[col] = default
         return raw_df
@@ -74,38 +72,32 @@ if st.session_state.is_auth:
         st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (한 화면 병렬 배치) ---
+# --- 4. 실시간 전체 랭킹 (여성 왼쪽 / 남성 오른쪽) ---
 st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
-# 데이터 전처리
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-# ✅ 요청하신 병렬 그리드 (왼쪽: 여자 / 오른쪽: 남자)
-rank_col_left, rank_col_right = st.columns(2)
+rank_col_female, rank_col_male = st.columns(2)
 
-def display_rank_content(data, title, icon):
-    st.markdown(f"#### {icon} {title} TOP 10")
-    sd = data.sort_values(by='weight', ascending=False).head(10)
+def display_full_rank(data, title, icon):
+    st.markdown(f"#### {icon} {title}")
+    sd = data.sort_values(by='weight', ascending=False)
     if sd.empty:
         st.info("등록된 기록이 없습니다.")
     else:
-        # 박스 형태로 시인성 높임
         with st.container(border=True):
             for i, row in enumerate(sd.itertuples(), 1):
                 medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"**{get_ordinal(i)}**")
                 name_style = f"color:#29b5e8; font-weight:bold;" if st.session_state.user_name == row.name else ""
                 st.markdown(f"{medal} <span style='{name_style}'>{row.name}</span> : `{row.weight} lb`", unsafe_allow_html=True)
 
-with rank_col_left:
-    # 요청대로 왼쪽은 여자
-    display_rank_content(best_rank_df[best_rank_df['gender'] == "여성"], "Female", "♀️")
-
-with rank_col_right:
-    # 요청대로 오른쪽은 남자
-    display_rank_content(best_rank_df[best_rank_df['gender'] == "남성"], "Male", "♂️")
+with rank_col_female:
+    display_full_rank(best_rank_df[best_rank_df['gender'] == "여성"], "FEMALE", "♀️")
+with rank_col_male:
+    display_full_rank(best_rank_df[best_rank_df['gender'] == "남성"], "MALE", "♂️")
 
 st.divider()
 
@@ -162,7 +154,7 @@ if not st.session_state.is_auth:
                 st.session_state.temp_pw = str(n_pw)
                 st.rerun()
 
-# --- 7. 개인 차트 ---
+# --- 7. 개인 차트 및 상세 기록 (여기가 복구된 부분!) ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
@@ -174,6 +166,13 @@ if st.session_state.is_auth:
         bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
         text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
         st.altair_chart(bars + text, use_container_width=True)
+        
+        # ✅ 상세 기록 테이블 복구 완료!
+        with st.expander("📋 나의 상세 운동 기록 전체 보기"):
+            my_exs = sorted(my_data['exercise'].unique().tolist())
+            sel_ex = st.selectbox("종목 필터", ["전체 보기"] + my_exs)
+            disp_df = my_data if sel_ex == "전체 보기" else my_data[my_data['exercise'] == sel_ex]
+            st.dataframe(disp_df[['date', 'exercise', 'weight', 'memo']].sort_values('date', ascending=False), hide_index=True, use_container_width=True)
 
     st.divider()
 
