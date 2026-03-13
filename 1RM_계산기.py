@@ -37,7 +37,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        raw_df = conn.read(spreadsheet=SHEET_URL, worksheet="sheet1", ttl=0)
+        raw_df = conn.read(worksheet="sheet1", ttl=0)
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         raw_df = raw_df.fillna('')
@@ -198,4 +198,5 @@ if st.session_state.is_auth:
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
     if st.text_input("Key", type="password") == "5207": st.dataframe(df)
+
 
