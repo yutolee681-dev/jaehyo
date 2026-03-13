@@ -63,28 +63,51 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 박스 랭킹판 ---
-selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
+# --- 4-1. 실시간 응원 댓글 (방명록) ---
+st.subheader("💬 실시간 응원 한마디")
 
-rank_df = df[df['exercise'] == selected_rank_exercise].copy()
-rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
-best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
+# 댓글 데이터 불러오기 (없으면 새로 생성)
+def get_comments():
+    try:
+        # worksheet 이름을 "comments"로 지정 (구글 시트에 미리 만들어두거나 없으면 생성됨)
+        c_df = conn.read(worksheet="comments", ttl=0)
+        return c_df if c_df is not None else pd.DataFrame(columns=['name', 'comment', 'date'])
+    except:
+        return pd.DataFrame(columns=['name', 'comment', 'date'])
 
-with st.expander(f"🔥 {selected_rank_exercise} TOP 5", expanded=True):
-    if not best_rank_df.empty:
-        tab_m, tab_f = st.tabs(["♂️ M", "♀️ F"])
-        def display_rank(data):
-            sorted_data = data.sort_values(by='weight', ascending=False).head(5)
-            if sorted_data.empty: st.write("기록 없음")
-            else:
-                for i, row in enumerate(sorted_data.itertuples(), 1):
-                    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}th**"
-                    st.markdown(f"{medal} **{row.name}** : `{row.weight} lbs` ")
-        with tab_m: display_rank(best_rank_df[best_rank_df['gender'] == "남성"])
-        with tab_f: display_rank(best_rank_df[best_rank_df['gender'] == "여성"])
-    else: st.write("첫 주인공이 되어보세요!")
+comments_df = get_comments()
 
-st.divider()
+# 댓글 입력창 (로그인한 사람만 가능하게 설정)
+if st.session_state.is_auth:
+    with st.form(key="comment_form", clear_on_submit=True):
+        col_c1, col_c2 = st.columns([4, 1])
+        with col_c1:
+            new_comment = st.text_input(f"{st.session_state.user_name}님, 응원의 한마디!", placeholder="예: 우진님 클린 미쳤네요ㄷㄷ")
+        with col_c2:
+            submit_comment = st.form_submit_button("등록")
+        
+        if submit_comment and new_comment:
+            new_c_row = pd.DataFrame([{
+                "name": st.session_state.user_name,
+                "comment": new_comment,
+                "date": datetime.now().strftime("%m/%d %H:%M")
+            }])
+            all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
+            # 구글 시트의 'comments' 시트에 저장
+            conn.update(worksheet="comments", data=all_comments)
+            st.success("댓글 등록 완료!")
+            st.rerun()
+else:
+    st.info("로그인하면 댓글을 남길 수 있습니다.")
+
+# 댓글 목록 표시 (최신순 5개만)
+if not comments_df.empty:
+    st.markdown("---")
+    for _, row in comments_df.sort_index(ascending=False).head(10).iterrows():
+        st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
+        st.info(row['comment'])
+else:
+    st.write("아직 응원이 없어요. 첫 마디를 남겨보세요!")
 
 # --- 5. 사용자 인증 (생략 가능하지만 전체 코드 유지) ---
 if not st.session_state.is_auth:
@@ -229,6 +252,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
