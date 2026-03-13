@@ -271,7 +271,7 @@ if st.session_state.is_auth:
             else:
                 st.info(f"💡 {graph_exercise} 기록이 아직 없습니다. 첫 기록을 등록해보세요!")
 
-with tab3:
+        with tab3:
             st.write("#### 상세 기록 조회 및 수정/삭제")
             my_exercises = sorted(my_data['exercise'].unique().tolist())
             selected_history_ex = st.selectbox("종목 필터", ["전체 보기"] + my_exercises, key="history_filter")
@@ -375,6 +375,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
