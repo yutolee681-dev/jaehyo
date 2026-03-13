@@ -48,9 +48,18 @@ def get_full_data():
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
-        # NaN 값을 빈 문자열('')로 먼저 바꿉니다.
         raw_df = raw_df.fillna('')
         
+        # --- [이 부분을 추가하세요] ---
+        # 텍스트 데이터의 앞뒤 공백을 제거하여 매칭 확률을 높입니다.
+        if 'exercise' in raw_df.columns:
+            raw_df['exercise'] = raw_df['exercise'].astype(str).str.strip()
+        if 'name' in raw_df.columns:
+            raw_df['name'] = raw_df['name'].astype(str).str.strip()
+        if 'gender' in raw_df.columns:
+            raw_df['gender'] = raw_df['gender'].astype(str).str.strip()
+        # ----------------------------
+
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
         for col, default in required_cols.items():
             if col not in raw_df.columns:
@@ -399,6 +408,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
