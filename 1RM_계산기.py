@@ -69,11 +69,22 @@ def get_comments():
 df = get_full_data()
 comments_df = get_comments()
 
+# --- 2.5 로그인 유지 상태 확인 로직 ---
+# 세션이 날아갔을 때 초기값 설정
 if 'is_auth' not in st.session_state:
     st.session_state.is_auth = False
     st.session_state.user_name = ""
     st.session_state.user_gender = "남성"
 
+# 새로고침 시 데이터 재로드를 방지하기 위해 캐시 초기화 버튼의 로직을 수정
+def logout():
+    st.session_state.is_auth = False
+    st.session_state.user_name = ""
+    st.session_state.user_gender = "남성"
+    if 'temp_pw' in st.session_state:
+        del st.session_state.temp_pw
+    st.rerun()
+    
 st.markdown("<div id='link_to_top'></div>", unsafe_allow_html=True)
 st.title("🏋️ 1RM을 기억해")
 
@@ -358,7 +369,7 @@ if st.session_state.is_auth:
                         "exercise": ex_input,
                         "weight": weight_input,
                         "date": date_input.strftime("%Y-%m-%d"),
-                        "password": st.session_state.temp_pw if 'temp_pw' in st.session_state else df[df['name']==st.session_state.user_name].iloc[-1]['password'],
+                        "password": st.session_state.temp_pw if 'temp_pw' in st.session_state else (df[df['name']==st.session_state.user_name].iloc[-1]['password'] if not df[df['name']==st.session_state.user_name].empty else "'0000"),
                         "memo": memo_input
                     }])
                     
@@ -377,6 +388,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
