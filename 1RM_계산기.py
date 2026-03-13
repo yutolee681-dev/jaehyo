@@ -213,15 +213,17 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = f"'{new_pw}" # '0' 보존을 위한 접두어
                     st.rerun()
 
-# --- 7. 개인 차트 및 상세 기록 ---
+# --- 7. 개인 차트 및 상세 기록 (그래프 & 삭제 기능 추가) ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
+    my_data['date'] = pd.to_datetime(my_data['date']).dt.date # 날짜 형식 통일
     
     if not my_data.empty:
+        # (1) 최고 기록 바 차트 (기존 유지)
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-        st.write(f"📊 {st.session_state.user_name}님의 최고 기록")
+        st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
         
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
@@ -230,59 +232,50 @@ if st.session_state.is_auth:
         bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
         text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
         st.altair_chart(bars + text, use_container_width=True)
+
+        # (2) 성장 그래프 (새로 추가)
+        st.write(f"📈 기록 성장 추이")
+        graph_exercise = st.selectbox("추이를 볼 종목 선택", exercise_list, key="graph_ex")
+        ex_history = my_data[my_data['exercise'] == graph_exercise].sort_values('date')
         
-        with st.expander("📋 상세 기록 조회"):
+        if not ex_history.empty:
+            line_chart = alt.Chart(ex_history).mark_line(point=True, color="#ff4b4b").encode(
+                x=alt.X('date:T', title="날짜"),
+                y=alt.Y('weight:Q', title="중량 (lbs)", scale=alt.Scale(zero=False)),
+                tooltip=['date', 'weight', 'memo']
+            ).properties(height=300)
+            st.altair_chart(line_chart, use_container_width=True)
+        else:
+            st.info(f"{graph_exercise} 기록이 아직 없습니다.")
+
+        # (3) 상세 기록 조회 및 삭제 (수정)
+        with st.expander("📋 상세 기록 조회 및 삭제"):
             my_exercises = sorted(my_data['exercise'].unique().tolist())
             selected_history_ex = st.selectbox("조회할 종목", ["전체 보기"] + my_exercises, key="history_filter")
+            
             history_display_df = my_data if selected_history_ex == "전체 보기" else my_data[my_data['exercise'] == selected_history_ex]
-            history_display_df = history_display_df[['date', 'exercise', 'weight', 'memo']].sort_values(by='date', ascending=False)
-            st.dataframe(history_display_df, hide_index=True, use_container_width=True)
+            history_display_df = history_display_df.sort_values(by=['date', 'exercise'], ascending=[False, True])
+            
+            # 삭제를 위한 인터페이스
+            for idx, row in history_display_df.iterrows():
+                col1, col2, col3 = st.columns([2, 1, 0.5])
+                with col1:
+                    st.markdown(f"**{row['date']}** | {row['exercise']}")
+                    if row['memo']: st.caption(f"📝 {row['memo']}")
+                with col2:
+                    st.markdown(f"`{row['weight']} lb`")
+                with col3:
+                    # 각 행 옆에 삭제 버튼 배치
+                    if st.button("🗑️", key=f"record_del_{idx}"):
+                        # 원본 df에서 해당 인덱스 삭제 (df는 전체 데이터프레임)
+                        updated_df = df.drop(idx)
+                        conn.update(worksheet="sheet1", data=updated_df)
+                        st.warning("기록이 삭제되었습니다.")
+                        time.sleep(1)
+                        st.rerun()
+                st.divider()
 
     st.divider()
-
-    # --- 8. 기록 업데이트 ---
-    st.subheader("💪 오늘의 기록 업데이트")
-    try:
-        ex_index = exercise_list.index(selected_rank_exercise)
-    except:
-        ex_index = 0
-
-    save_exercise = st.selectbox("종목 선택", exercise_list, index=ex_index)
-    ex_record = my_data[my_data['exercise'] == save_exercise]
-    prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
-    
-    if prev_max > 0:
-        st.info(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
-        percents = list(range(50, 101, 5))
-        with st.expander("📊 퍼센트별 중량 확인"):
-            for p in percents:
-                calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                st.metric(label=f"{p}%", value=f"{calc_w} lb")
-    
-    st.divider()
-    new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0)
-    new_memo = st.text_input("오늘의 메모", placeholder="예: 컨디션 좋음")
-    
-    if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
-        if new_weight > 0:
-            kst_now = datetime.now() + timedelta(hours=9)
-            user_data = df[df['name'] == st.session_state.user_name]
-            last_row = user_data.iloc[-1] if not user_data.empty else None
-            final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
-            
-            if not str(final_pw).startswith("'"):
-                final_pw = f"'{final_pw}"
-            
-            new_record = pd.DataFrame([{
-                "name": st.session_state.user_name, "exercise": save_exercise, "weight": new_weight, 
-                "date": kst_now.strftime("%Y-%m-%d"), "password": final_pw, 
-                "gender": st.session_state.user_gender, "memo": new_memo 
-            }])
-            updated_df = pd.concat([df, new_record], ignore_index=True)
-            conn.update(worksheet="sheet1", data=updated_df)
-            st.balloons()
-            time.sleep(1)
-            st.rerun()
 
     st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
 
@@ -291,6 +284,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
