@@ -5,13 +5,6 @@ from datetime import datetime, timedelta
 import altair as alt
 import time
 
-with st.sidebar:
-    st.title("⚙️ 설정")
-    if st.button("🔄 데이터 새로고침", use_container_width=True):
-        st.rerun()
-    st.info("데이터가 실시간으로 보이지 않으면 위 버튼을 눌러주세요.")
-
-
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
@@ -48,18 +41,6 @@ def get_full_data():
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
-        raw_df = raw_df.fillna('')
-        
-        # --- [이 부분을 추가하세요] ---
-        # 텍스트 데이터의 앞뒤 공백을 제거하여 매칭 확률을 높입니다.
-        if 'exercise' in raw_df.columns:
-            raw_df['exercise'] = raw_df['exercise'].astype(str).str.strip()
-        if 'name' in raw_df.columns:
-            raw_df['name'] = raw_df['name'].astype(str).str.strip()
-        if 'gender' in raw_df.columns:
-            raw_df['gender'] = raw_df['gender'].astype(str).str.strip()
-        # ----------------------------
-
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
         for col, default in required_cols.items():
             if col not in raw_df.columns:
@@ -78,35 +59,19 @@ def get_comments():
 df = get_full_data()
 comments_df = get_comments()
 
-# --- 2.5 로그인 유지 상태 확인 로직 ---
-# 세션이 날아갔을 때 초기값 설정
 if 'is_auth' not in st.session_state:
     st.session_state.is_auth = False
     st.session_state.user_name = ""
     st.session_state.user_gender = "남성"
 
-# 새로고침 시 데이터 재로드를 방지하기 위해 캐시 초기화 버튼의 로직을 수정
-def logout():
-    st.session_state.is_auth = False
-    st.session_state.user_name = ""
-    st.session_state.user_gender = "남성"
-    if 'temp_pw' in st.session_state:
-        del st.session_state.temp_pw
-    st.rerun()
-    
 st.markdown("<div id='link_to_top'></div>", unsafe_allow_html=True)
 st.title("🏋️ 1RM을 기억해")
 
-# --- 3. 최상단 환영 메시지 및 로그아웃 수정 ---
+# --- 3. 최상단 환영 메시지 및 로그아웃 ---
 if st.session_state.is_auth:
-    col_welcome, col_refresh, col_logout = st.columns([2, 1, 1]) # 컬럼 추가
+    col_welcome, col_logout = st.columns([3, 1])
     with col_welcome:
         st.subheader(f"👋 {st.session_state.user_name}님")
-    with col_refresh:
-        # 새로고침 버튼
-        if st.button("🔄 새로고침", use_container_width=True):
-            st.cache_data.clear() # 캐시된 데이터가 있다면 삭제
-            st.rerun()
     with col_logout:
         if st.button("로그아웃", use_container_width=True):
             st.session_state.is_auth = False
@@ -171,15 +136,14 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded
         
 st.divider()
 
-# --- 5. 실시간 응원 댓글 (초슬림 & 세련된 버전) ---
-st.markdown("### 💬 응원 한마디") # 글씨 크기를 약간 줄임
+# --- 5. 실시간 응원 댓글 ---
+st.subheader("💬 실시간 응원 한마디")
 
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
-            # 라벨을 숨기고 입력창 높이를 최적화
-            new_comment = st.text_input("댓글", placeholder="예) 재효님 클린 ㅎㄷㄷ!!", label_visibility="collapsed")
+            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="예: 재효님 클린 미쳤네요ㄷㄷ")
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         
@@ -192,29 +156,28 @@ if st.session_state.is_auth:
             }])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
             conn.update(worksheet="comments", data=all_comments)
+            st.success("댓글 등록 완료!")
+            time.sleep(1)
             st.rerun()
+else:
+    st.info("로그인하면 댓글을 남길 수 있습니다.")
 
-# 댓글 리스트 출력 (두꺼운 박스 제거)
 if not comments_df.empty:
-    # 최신 5개만 얇게 표시
-    display_comments = comments_df.sort_index(ascending=False).head(5)
-    
-    for idx, row in display_comments.iterrows():
-        # 한 줄 구성: 이름, 내용, 시간, 삭제버튼
-        c_text, c_del = st.columns([5, 0.5])
-        with c_text:
-            st.markdown(
-                f"**{row['name']}** <span style='margin-left:10px;'>{row['comment']}</span> "
-                f"<small style='color:gray; margin-left:10px;'>{row['date']}</small>", 
-                unsafe_allow_html=True
-            )
-        with c_del:
-            if st.session_state.is_auth and st.session_state.user_name == row['name']:
-                if st.button("✕", key=f"del_c_{idx}", help="삭제"): # 아이콘을 더 얇은 걸로 변경
-                    updated_comments = comments_df.drop(idx)
-                    conn.update(worksheet="comments", data=updated_comments)
-                    st.rerun()
-        st.write("<div style='margin-top:-10px; border-bottom:0.5px solid #eee;'></div>", unsafe_allow_html=True) # 아주 얇은 실선
+    with st.expander("최근 댓글 보기", expanded=True):
+        display_comments = comments_df.sort_index(ascending=False).head(10)
+        for idx, row in display_comments.iterrows():
+            c_col1, c_col2 = st.columns([5, 1])
+            with c_col1:
+                st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
+                st.info(row['comment'])
+            with c_col2:
+                if st.session_state.is_auth and st.session_state.user_name == row['name']:
+                    if st.button("🗑️", key=f"del_{idx}"):
+                        updated_comments = comments_df.drop(idx)
+                        conn.update(worksheet="comments", data=updated_comments)
+                        st.warning("삭제됨")
+                        time.sleep(1)
+                        st.rerun()
 
 st.divider()
 
@@ -250,184 +213,84 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = f"'{new_pw}" # '0' 보존을 위한 접두어
                     st.rerun()
 
-# --- 7. 개인 대시보드 (그래프, 성장 추이, 기록 관리) ---
+# --- 7. 개인 차트 및 상세 기록 ---
 if st.session_state.is_auth:
-    # 데이터 전처리
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
-    my_data['date'] = pd.to_datetime(my_data['date'], errors='coerce').dt.date
     
     if not my_data.empty:
-        st.subheader(f"📊 {st.session_state.user_name}님의 기록실")
+        chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
+        chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
+        st.write(f"📊 {st.session_state.user_name}님의 최고 기록")
         
-        # 탭을 사용하여 화면을 효율적으로 구성
-        tab1, tab2, tab3 = st.tabs(["🏆 최고 기록", "📈 성장 추이", "📋 기록 관리"])
-
-        with tab1:
-            st.write("#### 종목별 Best Record")
-            chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
-            chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-            
-            base = alt.Chart(chart_df).encode(
-                y=alt.Y('exercise_short:N', sort='-x', title=None),
-                x=alt.X('weight:Q', title="중량 (lbs)")
-            )
-            bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
-            text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(
-                text=alt.Text('weight:Q', format='.0f')
-            )
-            st.altair_chart(bars + text, use_container_width=True)
-
-        with tab2:
-            st.write("#### 시간별 성장 그래프")
-            graph_exercise = st.selectbox("추이를 볼 종목 선택", exercise_list, key="graph_ex")
-            ex_history = my_data[my_data['exercise'] == graph_exercise].sort_values('date')
-            
-            if not ex_history.empty:
-                line_chart = alt.Chart(ex_history).mark_line(point=True, color="#ff4b4b").encode(
-                    x=alt.X('date:T', title="날짜"),
-                    y=alt.Y('weight:Q', title="중량 (lbs)", scale=alt.Scale(zero=False)),
-                    tooltip=['date', 'weight', 'memo']
-                ).properties(height=300)
-                st.altair_chart(line_chart, use_container_width=True)
-            else:
-                st.info(f"💡 {graph_exercise} 기록이 아직 없습니다. 첫 기록을 등록해보세요!")
-
-        with tab3:
-            st.write("#### 상세 기록 조회 및 수정/삭제")
+        base = alt.Chart(chart_df).encode(
+            y=alt.Y('exercise_short:N', sort='-x', title=None),
+            x=alt.X('weight:Q', title="중량 (lbs)")
+        )
+        bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
+        text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
+        st.altair_chart(bars + text, use_container_width=True)
+        
+        with st.expander("📋 상세 기록 조회"):
             my_exercises = sorted(my_data['exercise'].unique().tolist())
-            selected_history_ex = st.selectbox("종목 필터", ["전체 보기"] + my_exercises, key="history_filter")
-            
+            selected_history_ex = st.selectbox("조회할 종목", ["전체 보기"] + my_exercises, key="history_filter")
             history_display_df = my_data if selected_history_ex == "전체 보기" else my_data[my_data['exercise'] == selected_history_ex]
-            history_display_df = history_display_df.sort_values(by=['date', 'exercise'], ascending=[False, True])
-            
-            st.write("---")
-
-            # --- 수정용 팝업 함수 (st.dialog) ---
-            @st.dialog("기록 수정하기")
-            def edit_record(record_idx, old_weight, old_memo, old_date, old_ex):
-                new_w = st.number_input("중량 (lb)", value=int(old_weight), step=5)
-                new_m = st.text_input("메모", value=old_memo)
-                new_d = st.date_input("날짜", value=old_date)
-                
-                if st.button("수정 완료", use_container_width=True):
-                    # 전체 데이터프레임(df)에서 해당 인덱스 값 업데이트
-                    df.at[record_idx, 'weight'] = new_w
-                    df.at[record_idx, 'memo'] = new_m
-                    df.at[record_idx, 'date'] = new_d.strftime("%Y-%m-%d")
-                    
-                    conn.update(worksheet="sheet1", data=df)
-                    st.success("기록이 수정되었습니다!")
-                    time.sleep(1)
-                    st.rerun()
-
-            # 기록 리스트 출력 (모바일 최적화 버전)
-            for idx, row in history_display_df.iterrows():
-                # 1. 정보 표시 (날짜, 종목, 무게)
-                m_val = str(row['memo']).strip()
-                memo_text = f"📝 {m_val}" if m_val and m_val.lower() != 'nan' and m_val != '' else "📝 기록 없음"
-                
-                # HTML로 상단 정보를 가로로 배치 (무게를 파란색으로 강조)
-                st.markdown(f"""
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
-                    <div>
-                        <span style="font-size: 0.9rem; font-weight: bold;">{row['date']}</span> | 
-                        <span style="font-size: 0.9rem;">{row['exercise']}</span><br>
-                        <span style="font-size: 0.75rem; color: #888;">{memo_text}</span>
-                    </div>
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #29b5e8;">
-                        {row['weight']} <span style="font-size: 0.8rem;">lb</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # 2. 버튼 영역 (모바일에서 강제로 가로 5:5 배치)
-                btn_col1, btn_col2 = st.columns([1, 1]) # 1:1 비율이 모바일에서 가장 잘 붙습니다.
-                
-                with btn_col1:
-                    # use_container_width=True를 써서 버튼이 칸을 꽉 채우게 함
-                    if st.button("✏️ 수정", key=f"edit_{idx}", use_container_width=True):
-                        edit_record(idx, row['weight'], row['memo'], row['date'], row['exercise'])
-                
-                with btn_col2:
-                    if st.button("🗑️ 삭제", key=f"del_{idx}", use_container_width=True):
-                        updated_df = df.drop(idx)
-                        conn.update(worksheet="sheet1", data=updated_df)
-                        st.rerun()
-                
-                # 깔끔한 구분선
-                st.markdown("<hr style='margin: 10px 0; border: 0.1px solid #333; opacity: 0.2;'>", unsafe_allow_html=True)
-            
-
-    else:
-        st.info("아직 등록된 기록이 없습니다. 아래에서 첫 기록을 입력해보세요!")
+            history_display_df = history_display_df[['date', 'exercise', 'weight', 'memo']].sort_values(by='date', ascending=False)
+            st.dataframe(history_display_df, hide_index=True, use_container_width=True)
 
     st.divider()
-    # 맨 위로 가기 버튼
-    st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer; color:#333;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
 
-# --- 8. 기록 입력 섹션 (Expander로 깔끔하게 정리) ---
-if st.session_state.is_auth:
-    with st.expander("➕ 오늘의 새로운 기록 등록하기", expanded=False):
-        with st.form(key="record_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                ex_input = st.selectbox("종목", exercise_list)
-                date_input = st.date_input("날짜", value=datetime.now() + timedelta(hours=9))
-            with col2:
-                weight_input = st.number_input("중량 (lb)", min_value=0, step=5)
-                memo_input = st.text_input("메모 (선택)", placeholder="컨디션 등 기록")
+    # --- 8. 기록 업데이트 ---
+    st.subheader("💪 오늘의 기록 업데이트")
+    try:
+        ex_index = exercise_list.index(selected_rank_exercise)
+    except:
+        ex_index = 0
+
+    save_exercise = st.selectbox("종목 선택", exercise_list, index=ex_index)
+    ex_record = my_data[my_data['exercise'] == save_exercise]
+    prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
+    
+    if prev_max > 0:
+        st.info(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
+        percents = list(range(50, 101, 5))
+        with st.expander("📊 퍼센트별 중량 확인"):
+            for p in percents:
+                calc_w = round((prev_max * p / 100) / 2.5) * 2.5
+                st.metric(label=f"{p}%", value=f"{calc_w} lb")
+    
+    st.divider()
+    new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0)
+    new_memo = st.text_input("오늘의 메모", placeholder="예: 컨디션 좋음")
+    
+    if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
+        if new_weight > 0:
+            kst_now = datetime.now() + timedelta(hours=9)
+            user_data = df[df['name'] == st.session_state.user_name]
+            last_row = user_data.iloc[-1] if not user_data.empty else None
+            final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
             
-            submit_record = st.form_submit_button("기록 저장하기", use_container_width=True)
+            if not str(final_pw).startswith("'"):
+                final_pw = f"'{final_pw}"
             
-            if submit_record:
-                if weight_input > 0:
-                    # 새로운 행 생성
-                    new_row = pd.DataFrame([{
-                        "name": st.session_state.user_name,
-                        "gender": st.session_state.user_gender,
-                        "exercise": ex_input,
-                        "weight": weight_input,
-                        "date": date_input.strftime("%Y-%m-%d"),
-                        "password": st.session_state.temp_pw if 'temp_pw' in st.session_state else (df[df['name']==st.session_state.user_name].iloc[-1]['password'] if not df[df['name']==st.session_state.user_name].empty else "'0000"),
-                        "memo": memo_input
-                    }])
-                    
-                    # 데이터 합치기 및 업로드
-                    updated_df = pd.concat([df, new_row], ignore_index=True)
-                    conn.update(worksheet="sheet1", data=updated_df)
-                    
-                    st.success(f"🔥 {ex_input} {weight_input}lb 등록 완료! 수고하셨습니다!")
-                    time.sleep(1.5)
-                    st.rerun()
-                else:
-                    st.warning("중량을 입력해주세요!")
-                    
+            new_record = pd.DataFrame([{
+                "name": st.session_state.user_name, "exercise": save_exercise, "weight": new_weight, 
+                "date": kst_now.strftime("%Y-%m-%d"), "password": final_pw, 
+                "gender": st.session_state.user_gender, "memo": new_memo 
+            }])
+            updated_df = pd.concat([df, new_record], ignore_index=True)
+            conn.update(worksheet="sheet1", data=updated_df)
+            st.balloons()
+            time.sleep(1)
+            st.rerun()
+
+    st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
+
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
