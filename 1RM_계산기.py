@@ -308,11 +308,49 @@ if st.session_state.is_auth:
     # 맨 위로 가기 버튼
     st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer; color:#333;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
 
+# --- 8. 기록 입력 섹션 (Expander로 깔끔하게 정리) ---
+if st.session_state.is_auth:
+    with st.expander("➕ 오늘의 새로운 기록 등록하기", expanded=False):
+        with st.form(key="record_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                ex_input = st.selectbox("종목", exercise_list)
+                date_input = st.date_input("날짜", value=datetime.now() + timedelta(hours=9))
+            with col2:
+                weight_input = st.number_input("중량 (lb)", min_value=0, step=5)
+                memo_input = st.text_input("메모 (선택)", placeholder="컨디션 등 기록")
+            
+            submit_record = st.form_submit_button("기록 저장하기", use_container_width=True)
+            
+            if submit_record:
+                if weight_input > 0:
+                    # 새로운 행 생성
+                    new_row = pd.DataFrame([{
+                        "name": st.session_state.user_name,
+                        "gender": st.session_state.user_gender,
+                        "exercise": ex_input,
+                        "weight": weight_input,
+                        "date": date_input.strftime("%Y-%m-%d"),
+                        "password": st.session_state.temp_pw if 'temp_pw' in st.session_state else df[df['name']==st.session_state.user_name].iloc[-1]['password'],
+                        "memo": memo_input
+                    }])
+                    
+                    # 데이터 합치기 및 업로드
+                    updated_df = pd.concat([df, new_row], ignore_index=True)
+                    conn.update(worksheet="sheet1", data=updated_df)
+                    
+                    st.success(f"🔥 {ex_input} {weight_input}lb 등록 완료! 수고하셨습니다!")
+                    time.sleep(1.5)
+                    st.rerun()
+                else:
+                    st.warning("중량을 입력해주세요!")
+                    
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
