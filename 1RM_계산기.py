@@ -37,26 +37,26 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        # worksheet="sheet1"을 명시하여 정확한 탭에서 읽어옵니다.
+        # ttl=0은 캐시를 사용하지 않겠다는 뜻입니다.
         raw_df = conn.read(worksheet="sheet1", ttl=0)
+        
         if raw_df is None or raw_df.empty:
+            # 이 메시지가 뜨면 진짜로 시트에서 데이터를 못 읽어오는 것입니다.
+            st.sidebar.error("시트가 비어있거나 연결을 확인해야 합니다.")
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
-        # [수정] 데이터 정제: 문자열 공백 제거 및 숫자 변환
+        # 데이터 정제 (공백 제거)
         raw_df = raw_df.fillna('')
-        for col in ['name', 'exercise', 'gender']:
-            if col in raw_df.columns:
-                raw_df[col] = raw_df[col].astype(str).str.strip()
-        
+        for col in raw_df.columns:
+            raw_df[col] = raw_df[col].astype(str).str.strip()
+            
+        # 무게 숫자 변환
         if 'weight' in raw_df.columns:
             raw_df['weight'] = pd.to_numeric(raw_df['weight'], errors='coerce').fillna(0)
             
-        required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
-        for col, default in required_cols.items():
-            if col not in raw_df.columns:
-                raw_df[col] = default
         return raw_df
-    except Exception:
+    except Exception as e:
+        st.sidebar.error(f"연결 에러: {e}")
         return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
 
 def get_comments():
@@ -302,3 +302,4 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
