@@ -82,7 +82,7 @@ if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
-            new_comment = st.text_input(f"{st.session_state.user_name}님, 응원의 한마디!", placeholder="예: 우진님 클린 미쳤네요ㄷㄷ")
+            new_comment = st.text_input(f"{st.session_state.user_name}님, 응원의 한마디!", placeholder="예: 재효님 클린 미쳤네요ㄷㄷ")
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         
@@ -252,6 +252,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
