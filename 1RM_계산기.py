@@ -8,68 +8,6 @@ import time
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
-# --- 커스텀 CSS (모바일 가로배치 고정 및 UI 최적화) ---
-st.markdown("""
-    <style>
-    /* 랭킹 컨테이너: 모바일에서도 무조건 가로 배치 */
-    .rank-container {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 8px;
-        width: 100%;
-        margin: 10px 0;
-    }
-    /* 개별 랭킹 카드 */
-    .rank-card {
-        flex: 1;
-        background: white;
-        padding: 12px 6px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        border: 1px solid #eee;
-        min-width: 0;
-    }
-    .rank-header {
-        text-align: center;
-        font-weight: 800;
-        font-size: 0.85rem;
-        color: #444;
-        border-bottom: 2px solid #f8f9fa;
-        padding-bottom: 8px;
-        margin-bottom: 10px;
-    }
-    .rank-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 7px 4px;
-        border-bottom: 1px solid #fcfcfc;
-    }
-    .rank-name {
-        font-size: 0.75rem;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        color: #333;
-    }
-    .rank-weight {
-        font-size: 0.8rem;
-        font-weight: 800;
-        color: #29b5e8;
-        flex-shrink: 0;
-    }
-    .is-me { 
-        background-color: #e3f2fd; 
-        border-radius: 6px; 
-        border: 1px solid #bbdefb;
-    }
-    /* 스크롤바 숨기기 */
-    ::-webkit-scrollbar { display: none; }
-    </style>
-    """, unsafe_allow_html=True)
-
 # --- 서수(Ordinal) 변환 함수 ---
 def get_ordinal(n):
     if 11 <= n % 100 <= 13:
@@ -107,9 +45,6 @@ def get_full_data():
         for col, default in required_cols.items():
             if col not in raw_df.columns:
                 raw_df[col] = default
-        
-        # 비밀번호 문자열 강제 변환 (0000 보존)
-        raw_df['password'] = raw_df['password'].astype(str).str.replace(".0", "", regex=False)
         return raw_df
     except Exception:
         return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
@@ -144,40 +79,39 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (남/여 병렬 고정) ---
-st.subheader("🏆 박스 실시간 랭킹")
+# --- 4. 실시간 전체 랭킹 (남/여 병렬 & 서수 적용) ---
+st.subheader("🏆 박스 실시간 랭킹 (전체)")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-def render_rank_html(data, label, icon):
-    rows_html = ""
-    sorted_data = data.sort_values(by='weight', ascending=False)
-    if sorted_data.empty:
-        rows_html = "<div style='text-align:center;color:gray;font-size:0.7rem;padding:10px;'>기록 없음</div>"
+with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded=True):
+    if not best_rank_df.empty:
+        col_m, col_f = st.columns(2)
+        
+        def display_full_rank(data, title_icon):
+            st.markdown(f"#### {title_icon}")
+            sorted_data = data.sort_values(by='weight', ascending=False)
+            if sorted_data.empty:
+                st.write("기록 없음")
+            else:
+                for i, row in enumerate(sorted_data.itertuples(), 1):
+                    if i == 1: medal = "🥇"
+                    elif i == 2: medal = "🥈"
+                    elif i == 3: medal = "🥉"
+                    else: medal = f"**{get_ordinal(i)}**"
+                    
+                    display_name = f"<span style='color:#29b5e8; font-weight:bold;'>{row.name}</span>" if st.session_state.user_name == row.name else f"{row.name}"
+                    st.markdown(f"{medal} {display_name} : `{row.weight} lb`", unsafe_allow_html=True)
+
+        with col_m:
+            display_full_rank(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
+        with col_f:
+            display_full_rank(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
     else:
-        for i, row in enumerate(sorted_data.itertuples(), 1):
-            medal = {1:"🥇", 2:"🥈", 3:"🥉"}.get(i, f"<b>{get_ordinal(i)}</b>")
-            me_class = "is-me" if st.session_state.user_name == row.name else ""
-            rows_html += f"""
-            <div class='rank-item {me_class}'>
-                <span class='rank-name'>{medal} {row.name}</span>
-                <span class='rank-weight'>{int(row.weight)} lb</span>
-            </div>
-            """
-    return f"<div class='rank-card'><div class='rank-header'>{icon} {label}</div>{rows_html}</div>"
-
-m_ranks = best_rank_df[best_rank_df['gender'] == "남성"]
-f_ranks = best_rank_df[best_rank_df['gender'] == "여성"]
-
-st.markdown(f"""
-    <div class='rank-container'>
-        {render_rank_html(m_ranks, "MALE", "♂️")}
-        {render_rank_html(f_ranks, "FEMALE", "♀️")}
-    </div>
-    """, unsafe_allow_html=True)
+        st.write("첫 주인공이 되어보세요!")
 
 st.divider()
 
@@ -202,8 +136,10 @@ if st.session_state.is_auth:
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
             conn.update(worksheet="comments", data=all_comments)
             st.success("댓글 등록 완료!")
-            time.sleep(0.5)
+            time.sleep(1)
             st.rerun()
+else:
+    st.info("로그인하면 댓글을 남길 수 있습니다.")
 
 if not comments_df.empty:
     with st.expander("최근 댓글 보기", expanded=True):
@@ -218,6 +154,8 @@ if not comments_df.empty:
                     if st.button("🗑️", key=f"del_{idx}"):
                         updated_comments = comments_df.drop(idx)
                         conn.update(worksheet="comments", data=updated_comments)
+                        st.warning("삭제됨")
+                        time.sleep(1)
                         st.rerun()
 
 st.divider()
@@ -234,7 +172,7 @@ if not st.session_state.is_auth:
                 pw_input = st.text_input("비밀번호", type="password")
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
-                    stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
+                    stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "") # 따옴표 제거 후 비교
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
                         st.session_state.user_name = selected_name
@@ -243,7 +181,7 @@ if not st.session_state.is_auth:
                     else: st.error("비밀번호 불일치")
         else:
             reg_col1, reg_col2 = st.columns(2)
-            new_name = reg_col1.text_input("새 이름")
+            new_name = reg_col1.text_input("새 이름", placeholder="예: 재효")
             new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
             new_pw = st.text_input("비밀번호 설정", type="password")
             if st.button("등록 및 로그인", use_container_width=True):
@@ -251,7 +189,7 @@ if not st.session_state.is_auth:
                     st.session_state.is_auth = True
                     st.session_state.user_name = new_name
                     st.session_state.user_gender = new_gender
-                    st.session_state.temp_pw = f"'{new_pw}"
+                    st.session_state.temp_pw = f"'{new_pw}" # '0' 보존을 위한 접두어
                     st.rerun()
 
 # --- 7. 개인 차트 및 상세 기록 ---
@@ -298,10 +236,11 @@ if st.session_state.is_auth:
         with st.expander("📊 퍼센트별 중량 확인"):
             for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                st.write(f"**{p}%**: {calc_w} lb")
+                st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
+    st.divider()
     new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0)
-    new_memo = st.text_input("오늘의 메모")
+    new_memo = st.text_input("오늘의 메모", placeholder="예: 컨디션 좋음")
     
     if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
         if new_weight > 0:
@@ -328,5 +267,7 @@ if st.session_state.is_auth:
 
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
-    if st.text_input("Key", type="password") == "5207":
+    admin_pw = st.text_input("Key", type="password")
+    if admin_pw == "5207":
         st.dataframe(df)
+
