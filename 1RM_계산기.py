@@ -113,33 +113,36 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위", expanded=True):
 
 st.divider()
 
-# --- 5. 실시간 응원 댓글 ---
+# --- 5. 실시간 응원 한마디 (예시 문구 업데이트) ---
 st.subheader("💬 실시간 응원 한마디")
+
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
-        c1, c2 = st.columns([4, 1])
-        new_comment = c1.text_input(f"{st.session_state.user_name}님, 응원 한마디!", placeholder="오늘 컨디션 최고!")
-        if c2.form_submit_button("등록") and new_comment:
+        col_c1, col_c2 = st.columns([4, 1])
+        with col_c1:
+            # 재효님 성함이 들어간 찰진 예시 문구!
+            new_comment = st.text_input(
+                f"{st.session_state.user_name}님, 한마디!", 
+                placeholder="예: 재효님 클린 미쳤네요ㄷㄷ" 
+            )
+        with col_c2:
+            submit_comment = st.form_submit_button("등록")
+        
+        if submit_comment and new_comment.strip():
             kst_now = datetime.now() + timedelta(hours=9)
-            new_row = pd.DataFrame([{"name": st.session_state.user_name, "comment": new_comment, "date": kst_now.strftime("%m/%d %H:%M")}])
-            conn.update(worksheet="comments", data=pd.concat([comments_df, new_row], ignore_index=True))
-            st.success("등록 완료!")
-            time.sleep(0.5)
+            new_c_row = pd.DataFrame([{
+                "name": st.session_state.user_name,
+                "comment": new_comment,
+                "date": kst_now.strftime("%m/%d %H:%M")
+            }])
+            # 시트 업데이트
+            all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
+            conn.update(worksheet="comments", data=all_comments)
+            
+            st.success("🔥 응원 등록 완료! 파이팅입니다!")
+            time.sleep(0.8)
             st.rerun()
-
-if not comments_df.empty:
-    with st.expander("최근 댓글 보기", expanded=True):
-        for idx, row in comments_df.sort_index(ascending=False).head(10).iterrows():
-            c_col1, c_col2 = st.columns([5, 1])
-            with c_col1:
-                st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
-                st.info(row['comment'])
-            with c_col2:
-                if st.session_state.is_auth and st.session_state.user_name == row['name']:
-                    if st.button("🗑️", key=f"del_{idx}"):
-                        conn.update(worksheet="comments", data=comments_df.drop(idx))
-                        st.rerun()
-
+            
 st.divider()
 
 # --- 6. 사용자 인증 ---
@@ -218,3 +221,4 @@ if st.session_state.is_auth:
 with st.expander("🛠️ Admin"):
     if st.text_input("Key", type="password") == "5207":
         st.dataframe(df)
+
