@@ -63,10 +63,9 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 박스 랭킹판 (누적 데이터 중 최고 기록만 필터링) ---
+# --- 4. 실시간 박스 랭킹판 ---
 selected_rank_exercise = st.selectbox("🏆 실시간 랭킹 종목 선택", exercise_list, index=0)
 
-# 전체 데이터 중 해당 종목의 사람별 최고 기록 추출
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
@@ -99,7 +98,6 @@ if not st.session_state.is_auth:
                 pw_input = st.text_input("비밀번호", type="password")
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
-                    # 가장 최근 비밀번호 가져오기
                     stored_pw = str(user_rows.iloc[-1]['password']).strip()
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
@@ -120,35 +118,47 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = new_pw
                     st.rerun()
 
-# --- 6. 개인 차트 및 누적 히스토리 ---
+# --- 6. 개인 차트 및 누적 히스토리 (에러 수정됨) ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
     
     if not my_data.empty:
-        # 차트용: 종목별 최고 기록만
-        chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise')
+        # 1. 종목별 최고 기록 필터링
+        chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
         
         st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
-        personal_chart = alt.Chart(chart_df).mark_bar(color="#29b5e8", cornerRadiusEnd=5).encode(
-            y=alt.Y('exercise_short:N', sort='-x', title=None),
-            x=alt.X('weight:Q', title="중량 (lbs)"),
-        ).properties(height=alt.Step(30))
-        st.altair_chart(personal_chart + personal_chart.mark_text(align='left', dx=5, text=alt.Text('weight:Q')), use_container_width=True)
         
-        # [핵심] 누적 메모 히스토리 보기
-        with st.expander("📋 나의 전체 운동 기록 (메모 포함)"):
+        # [수정 핵심] Altair 차트 레이어 방식 변경
+        base = alt.Chart(chart_df).encode(
+            y=alt.Y('exercise_short:N', sort='-x', title=None),
+            x=alt.X('weight:Q', title="중량 (lbs)")
+        )
+
+        bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
+        
+        # mark_text 안의 weight:Q 대신 텍스트 인코딩을 따로 분리하여 에러 방지
+        text = base.mark_text(
+            align='left',
+            dx=5,
+            color='black'
+        ).encode(
+            text='weight:Q'
+        )
+        
+        st.altair_chart(bars + text, use_container_width=True)
+        
+        with st.expander("📋 나의 전체 운동 기록 히스토리"):
             history_df = my_data[['date', 'exercise', 'weight', 'memo']].sort_values(by=['date', 'exercise'], ascending=False)
             st.dataframe(history_df, hide_index=True, use_container_width=True)
 
     st.divider()
 
-    # --- 7. 기록 업데이트 (무조건 누적 저장) ---
+    # --- 7. 기록 업데이트 ---
     st.subheader("💪 오늘의 기록 업데이트")
     save_exercise = st.selectbox("종목 선택", exercise_list, index=exercise_list.index(selected_rank_exercise))
     
-    # 해당 종목의 기존 최고 기록 찾기 (가이드용)
     ex_record = my_data[my_data['exercise'] == save_exercise]
     prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
     
@@ -169,7 +179,6 @@ if st.session_state.is_auth:
     
     if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
         if new_weight > 0:
-            # 최근 비밀번호 유지
             user_data = df[df['name'] == st.session_state.user_name]
             final_pw = str(user_data.iloc[-1]['password']) if not user_data.empty else st.session_state.get('temp_pw', '0000')
             
@@ -183,7 +192,6 @@ if st.session_state.is_auth:
                 "memo": new_memo 
             }])
             
-            # [수정] 기존 기록 삭제 없이 무조건 아래에 추가 (Append)
             updated_df = pd.concat([df, new_record], ignore_index=True)
             conn.update(worksheet="sheet1", data=updated_df)
             st.balloons()
