@@ -31,13 +31,16 @@ def get_full_data():
     try:
         raw_df = conn.read(worksheet="sheet1", ttl=0)
         if raw_df is None or raw_df.empty:
-            return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender'])
-        for col in ['password', 'gender']:
+            return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
+        
+        # 필수 컬럼 보장 (memo 포함)
+        required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
+        for col, default in required_cols.items():
             if col not in raw_df.columns:
-                raw_df[col] = "0000" if col == 'password' else "남성"
+                raw_df[col] = default
         return raw_df
     except Exception:
-        return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender'])
+        return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
 
 df = get_full_data()
 
@@ -127,6 +130,11 @@ if st.session_state.is_auth:
             x=alt.X('기록:Q', title="중량 (lbs)"),
         ).properties(height=alt.Step(30))
         st.altair_chart(personal_chart + personal_chart.mark_text(align='left', dx=5), use_container_width=True)
+        
+        # [추가] 내 메모 기록 보기
+        with st.expander("📋 내 최근 메모 확인"):
+            memo_df = my_data[['exercise', 'weight', 'date', 'memo']].sort_values(by='date', ascending=False)
+            st.dataframe(memo_df, hide_index=True)
 
     st.divider()
 
@@ -136,30 +144,37 @@ if st.session_state.is_auth:
     ex_record = df[(df['name'] == st.session_state.user_name) & (df['exercise'] == save_exercise)]
     prev_max = float(pd.to_numeric(ex_record['weight'], errors='coerce').max()) if not ex_record.empty else 0.0
     
-    # --- [복구] 큼직한 글씨 & 순차적 정렬 (2열 배치) ---
     if prev_max > 0:
         st.info(f"💡 {save_exercise} 최고: **{prev_max} lbs**")
-        percents = list(range(50, 101, 5)) # 50, 55, ... 100
-        
-        # 순서대로 2열로 나누기
+        percents = list(range(50, 101, 5))
         col1, col2 = st.columns(2)
         for i, p in enumerate(percents):
             calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-            # 짝수(0,2,4..)는 1열, 홀수(1,3,5..)는 2열에 배치하여 순차적으로 보이게 함
             if i % 2 == 0:
-                with col1:
-                    st.metric(label=f"{p}%", value=f"{calc_w} lb")
+                with col1: st.metric(label=f"{p}%", value=f"{calc_w} lb")
             else:
-                with col2:
-                    st.metric(label=f"{p}%", value=f"{calc_w} lb")
+                with col2: st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
+    # [입력창] 중량과 메모 같이 받기
     new_weight = st.number_input("중량 입력 (lbs)", value=0.0, step=5.0)
+    new_memo = st.text_input("메모 (선택사항)", placeholder="예: 컨디션 좋음, 벨트 착용 등")
+    
     if st.button("🏋️ 1RM 저장하기", use_container_width=True):
         if new_weight > 0:
             user_data = df[df['name'] == st.session_state.user_name]
             final_pw = str(user_data['password'].iloc[0]) if not user_data.empty else st.session_state.get('temp_pw', '0000')
-            new_record = pd.DataFrame([{"name": st.session_state.user_name, "exercise": save_exercise, "weight": new_weight, "date": datetime.now().strftime("%Y-%m-%d"), "password": final_pw, "gender": st.session_state.user_gender}])
+            
+            new_record = pd.DataFrame([{
+                "name": st.session_state.user_name, 
+                "exercise": save_exercise, 
+                "weight": new_weight, 
+                "date": datetime.now().strftime("%Y-%m-%d"), 
+                "password": final_pw, 
+                "gender": st.session_state.user_gender,
+                "memo": new_memo # 메모 저장
+            }])
+            
             updated_df = pd.concat([df[~((df['name'] == st.session_state.user_name) & (df['exercise'] == save_exercise))], new_record], ignore_index=True)
             conn.update(worksheet="sheet1", data=updated_df)
             st.balloons()
