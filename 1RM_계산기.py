@@ -313,35 +313,45 @@ if st.session_state.is_auth:
                     st.rerun()
 
             # 기록 리스트 출력 (모바일 최적화 버전)
+# --- 여기부터 복사해서 교체하세요 ---
             for idx, row in history_display_df.iterrows():
-                # 전체적인 높이를 줄이기 위해 컬럼 비율 조정
-                col1, col2 = st.columns([3, 1]) 
+                # 1. 정보 영역 (날짜, 종목, 무게를 한 줄에 표시)
+                m_val = str(row['memo']).strip()
+                memo_text = f"📝 {m_val}" if m_val and m_val.lower() != 'nan' and m_val != '' else "📝 기록 없음"
                 
-                with col1:
-                    st.markdown(f"**{row['date']}** | {row['exercise']}")
-                    m_val = str(row['memo']).strip()
-                    if m_val and m_val.lower() != 'nan' and m_val != '':
-                        st.caption(f"📝 {m_val}")
-                    else:
-                        st.caption("📝 기록 없음")
-                
-                with col2:
-                    # 중량을 강조해서 표시
-                    st.markdown(f"#### {row['weight']} <small>lb</small>", unsafe_allow_html=True)
+                # HTML로 날짜와 무게를 예쁘게 한 줄로 정렬
+                st.markdown(f"""
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
+                    <div style="line-height: 1.4;">
+                        <span style="font-size: 0.9rem; font-weight: bold;">{row['date']}</span> | 
+                        <span style="font-size: 0.9rem;">{row['exercise']}</span><br>
+                        <span style="font-size: 0.75rem; color: #888;">{memo_text}</span>
+                    </div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #29b5e8;">
+                        {row['weight']} <span style="font-size: 0.8rem;">lb</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
-                # 수정/삭제 버튼을 별도의 작은 컬럼으로 한 줄에 배치
-                btn_col1, btn_col2, _ = st.columns([1, 1, 3]) 
+                # 2. 버튼 영역 (가로로 작게 배치)
+                # 컬럼 비율을 0.15 정도로 아주 작게 줘야 모바일에서 옆으로 붙습니다.
+                btn_col1, btn_col2, btn_spacer = st.columns([0.15, 0.15, 0.7])
+                
                 with btn_col1:
-                    if st.button("✏️", key=f"edit_{idx}", use_container_width=True):
+                    # use_container_width를 False로 해야 버튼이 안 커집니다.
+                    if st.button("✏️", key=f"edit_{idx}"):
                         edit_record(idx, row['weight'], row['memo'], row['date'], row['exercise'])
+                
                 with btn_col2:
-                    if st.button("🗑️", key=f"del_{idx}", use_container_width=True):
+                    if st.button("🗑️", key=f"del_{idx}"):
                         updated_df = df.drop(idx)
                         conn.update(worksheet="sheet1", data=updated_df)
                         st.warning("삭제됨")
                         time.sleep(1)
                         st.rerun()
-                st.write("<div style='margin-top:-10px; border-bottom:0.5px solid #444;'></div>", unsafe_allow_html=True)
+                
+                # 아주 얇은 구분선
+                st.markdown("<hr style='margin: 10px 0; border: 0.1px solid #333; opacity: 0.3;'>", unsafe_allow_html=True)
 
     else:
         st.info("아직 등록된 기록이 없습니다. 아래에서 첫 기록을 입력해보세요!")
@@ -392,6 +402,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
