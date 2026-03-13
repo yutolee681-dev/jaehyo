@@ -118,14 +118,16 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = new_pw
                     st.rerun()
 
-# --- 6. 개인 차트 및 종목별 소팅 히스토리 ---
+# --- 6. 개인 차트 및 종목별 필터링 히스토리 ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
     
     if not my_data.empty:
+        # 1. 최고 기록 차트 (기존 유지)
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
         chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
+        
         st.write(f"📊 {st.session_state.user_name}님의 종목별 최고 기록")
         base = alt.Chart(chart_df).encode(
             y=alt.Y('exercise_short:N', sort='-x', title=None),
@@ -135,14 +137,26 @@ if st.session_state.is_auth:
         text = base.mark_text(align='left', dx=5, color='black').encode(text='weight:Q')
         st.altair_chart(bars + text, use_container_width=True)
         
-        # [개선 핵심] 종목별 히스토리 소팅
-        with st.expander("📋 나의 운동 기록 히스토리 (종목별 보기)"):
-            # 종목 가나다순 -> 같은 종목 내에서는 날짜 최신순 정렬
-            history_df = my_data[['exercise', 'weight', 'date', 'memo']].sort_values(
-                by=['exercise', 'date'], 
-                ascending=[True, False]
-            )
-            st.dataframe(history_df, hide_index=True, use_container_width=True)
+        # 2. [개선 핵심] 종목별 선택 필터링 히스토리
+        st.divider()
+        st.subheader("📋 상세 기록 조회")
+        
+        # 사용자가 기록을 가진 종목들만 필터 옵션으로 제공
+        my_exercises = sorted(my_data['exercise'].unique().tolist())
+        selected_history_ex = st.selectbox(
+            "조회할 종목을 선택하세요", 
+            ["전체 보기"] + my_exercises,
+            key="history_filter"
+        )
+        
+        if selected_history_ex == "전체 보기":
+            history_display_df = my_data[['date', 'exercise', 'weight', 'memo']]
+        else:
+            history_display_df = my_data[my_data['exercise'] == selected_history_ex][['date', 'weight', 'memo']]
+            
+        # 최신순 정렬 후 출력
+        history_display_df = history_display_df.sort_values(by='date', ascending=False)
+        st.dataframe(history_display_df, hide_index=True, use_container_width=True)
 
     st.divider()
 
@@ -190,3 +204,4 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
