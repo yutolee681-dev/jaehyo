@@ -39,17 +39,20 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        raw_df = conn.read(worksheet="sheet1", ttl=0)
+        # 핵심: spreadsheet 인자에 직접 SHEET_URL을 넣습니다.
+        # 이렇게 하면 'must be specified' 에러를 강제로 무시하고 연결합니다.
+        raw_df = conn.read(
+            spreadsheet=SHEET_URL, 
+            worksheet="sheet1", 
+            ttl=0
+        )
+        
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
-        raw_df = raw_df.fillna('')
-        for col in ['name', 'exercise', 'gender']:
-            if col in raw_df.columns: raw_df[col] = raw_df[col].astype(str).str.strip()
-        if 'weight' in raw_df.columns:
-            raw_df['weight'] = pd.to_numeric(raw_df['weight'], errors='coerce').fillna(0)
-        return raw_df
+        
+        return raw_df.fillna('')
     except Exception as e:
-        st.error(f"기록 로드 실패: {e}")
+        st.error(f"데이터 로드 실패: {e}")
         return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
 
 def get_comments():
@@ -200,6 +203,7 @@ if st.session_state.is_auth:
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
     if st.text_input("Key", type="password") == "5207": st.dataframe(df)
+
 
 
 
