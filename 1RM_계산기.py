@@ -37,10 +37,20 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
+        # worksheet="sheet1"을 명시하여 정확한 탭에서 읽어옵니다.
         raw_df = conn.read(worksheet="sheet1", ttl=0)
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
+        # [수정] 데이터 정제: 문자열 공백 제거 및 숫자 변환
+        raw_df = raw_df.fillna('')
+        for col in ['name', 'exercise', 'gender']:
+            if col in raw_df.columns:
+                raw_df[col] = raw_df[col].astype(str).str.strip()
+        
+        if 'weight' in raw_df.columns:
+            raw_df['weight'] = pd.to_numeric(raw_df['weight'], errors='coerce').fillna(0)
+            
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
         for col, default in required_cols.items():
             if col not in raw_df.columns:
@@ -79,24 +89,23 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (표 방식 레이아웃) ---
+# --- 4. 실시간 전체 랭킹 ---
 st.subheader("🏆 박스 실시간 랭킹 (전체)")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
+# [수정] 랭킹 필터링 로직 강화
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
-rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
-best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
 with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded=True):
-    if not best_rank_df.empty:
-        # 남/여 데이터 분리
+    if not rank_df.empty:
+        # 이름별 최고 기록 정렬 (중복 제거 전 정렬 필수)
+        best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
+        
         m_data = best_rank_df[best_rank_df['gender'] == "남성"].sort_values('weight', ascending=False)
         f_data = best_rank_df[best_rank_df['gender'] == "여성"].sort_values('weight', ascending=False)
         
-        # 최대 행 수 결정
         max_rows = max(len(m_data), len(f_data))
         
-        # HTML 테이블 생성
         html_code = f"""
         <table style="width:100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed;">
             <thead>
@@ -114,7 +123,7 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded
                 row_m = m_data.iloc[i]
                 medal_m = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{get_ordinal(i+1)}"
                 name_m_style = "color:#29b5e8; font-weight:bold;" if st.session_state.user_name == row_m['name'] else ""
-                m_col = f"<td>{medal_m} <span style='{name_m_style}'>{row_m['name']}</span> <b style='font-size:0.7rem;'>{row_m['weight']}</b></td>"
+                m_col = f"<td>{medal_m} <span style='{name_m_style}'>{row_m['name']}</span> <b style='font-size:0.7rem;'>{int(row_m['weight'])}</b></td>"
             else:
                 m_col = "<td>-</td>"
                 
@@ -123,7 +132,7 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded
                 row_f = f_data.iloc[i]
                 medal_f = "🥇" if i==0 else "🥈" if i==1 else "🥉" if i==2 else f"{get_ordinal(i+1)}"
                 name_f_style = "color:#29b5e8; font-weight:bold;" if st.session_state.user_name == row_f['name'] else ""
-                f_col = f"<td>{medal_f} <span style='{name_f_style}'>{row_f['name']}</span> <b style='font-size:0.7rem;'>{row_f['weight']}</b></td>"
+                f_col = f"<td>{medal_f} <span style='{name_f_style}'>{row_f['name']}</span> <b style='font-size:0.7rem;'>{int(row_f['weight'])}</b></td>"
             else:
                 f_col = "<td>-</td>"
             
@@ -155,6 +164,7 @@ if st.session_state.is_auth:
                 "date": kst_now.strftime("%m/%d %H:%M")
             }])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
+            # [수정] worksheet 명시
             conn.update(worksheet="comments", data=all_comments)
             st.success("댓글 등록 완료!")
             time.sleep(1)
@@ -193,7 +203,7 @@ if not st.session_state.is_auth:
                 pw_input = st.text_input("비밀번호", type="password")
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
-                    stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "") # 따옴표 제거 후 비교
+                    stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
                         st.session_state.user_name = selected_name
@@ -210,13 +220,12 @@ if not st.session_state.is_auth:
                     st.session_state.is_auth = True
                     st.session_state.user_name = new_name
                     st.session_state.user_gender = new_gender
-                    st.session_state.temp_pw = f"'{new_pw}" # '0' 보존을 위한 접두어
+                    st.session_state.temp_pw = f"'{new_pw}"
                     st.rerun()
 
 # --- 7. 개인 차트 및 상세 기록 ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
-    my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
     
     if not my_data.empty:
         chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
@@ -255,9 +264,10 @@ if st.session_state.is_auth:
         st.info(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
         percents = list(range(50, 101, 5))
         with st.expander("📊 퍼센트별 중량 확인"):
-            for p in percents:
+            cols = st.columns(3)
+            for i, p in enumerate(percents):
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                st.metric(label=f"{p}%", value=f"{calc_w} lb")
+                cols[i % 3].metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
     new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0)
@@ -268,7 +278,7 @@ if st.session_state.is_auth:
             kst_now = datetime.now() + timedelta(hours=9)
             user_data = df[df['name'] == st.session_state.user_name]
             last_row = user_data.iloc[-1] if not user_data.empty else None
-            final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
+            final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', "'0000")
             
             if not str(final_pw).startswith("'"):
                 final_pw = f"'{final_pw}"
@@ -279,6 +289,7 @@ if st.session_state.is_auth:
                 "gender": st.session_state.user_gender, "memo": new_memo 
             }])
             updated_df = pd.concat([df, new_record], ignore_index=True)
+            # [수정] worksheet 명시하여 저장 에러 방지
             conn.update(worksheet="sheet1", data=updated_df)
             st.balloons()
             time.sleep(1)
@@ -291,7 +302,3 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
-
-
-
-
