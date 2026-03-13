@@ -79,16 +79,28 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (모바일 좌우 고정 강제 CSS) ---
+# --- 4. 실시간 전체 랭킹 (모바일 좌우 고정 최종 해결책) ---
 st.subheader("🏆 박스 실시간 랭킹 (전체)")
 
-# CSS 주입: 모바일에서도 columns가 stacking되지 않게 강제
+# CSS 강제 주입: 모든 화면 크기에서 가로 배치 유지 및 줄바꿈 차단
 st.markdown("""
     <style>
+    /* 컬럼 컨테이너의 줄바꿈 방지 */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: flex-start !important;
+    }
+    /* 각 컬럼이 정확히 절반씩 차지하도록 강제 */
     [data-testid="column"] {
-        width: calc(50% - 1rem) !important;
-        flex: 1 1 calc(50% - 1rem) !important;
-        min-width: calc(50% - 1rem) !important;
+        width: 50% !important;
+        min-width: 50% !important;
+        flex: 1 1 50% !important;
+    }
+    /* 모바일에서 텍스트가 너무 크면 깨지므로 폰트 사이즈 조정 */
+    h4 {
+        font-size: 1.1rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -116,9 +128,9 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded
                     else: medal = f"<small>{get_ordinal(i)}</small>"
                     
                     name_color = "#29b5e8" if st.session_state.user_name == row.name else "inherit"
-                    # 텍스트가 넘치지 않도록 아주 작게 조정
+                    # 텍스트 오버플로우 방지 및 폰트 크기 최적화
                     st.markdown(
-                        f"<div style='font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom:4px;'>"
+                        f"<div style='font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom:5px;'>"
                         f"{medal} <span style='color:{name_color}; font-weight:bold;'>{row.name}</span>: {row.weight}lb"
                         f"</div>", 
                         unsafe_allow_html=True
@@ -130,7 +142,6 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded
             display_full_rank(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
     else:
         st.write("첫 주인공이 되어보세요!")
-
 st.divider()
 
 # --- 5. 실시간 응원 댓글 ---
@@ -288,6 +299,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
