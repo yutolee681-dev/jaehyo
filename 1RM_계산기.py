@@ -8,6 +8,14 @@ import time
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
+# --- 서수(Ordinal) 변환 함수 ---
+def get_ordinal(n):
+    if 11 <= n % 100 <= 13:
+        suffix = 'th'
+    else:
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+    return f"{n}{suffix}"
+
 # --- 종목 및 단축어 설정 ---
 exercise_list = [
     "Power Clean", "Squat Clean", "Power Snatch", "Squat Snatch", 
@@ -71,13 +79,12 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 전체 랭킹 (남/여 병렬 배치) ---
+# --- 4. 실시간 전체 랭킹 (남/여 병렬 & 서수 적용) ---
 st.subheader("🏆 박스 실시간 랭킹 (전체)")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
-# 이름별 최고 기록만 남기기
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
 with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded=True):
@@ -86,34 +93,29 @@ with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded
         
         def display_full_rank(data, title_icon):
             st.markdown(f"#### {title_icon}")
-            # 중량 내림차순 정렬
             sorted_data = data.sort_values(by='weight', ascending=False)
-            
             if sorted_data.empty:
                 st.write("기록 없음")
             else:
                 for i, row in enumerate(sorted_data.itertuples(), 1):
-                    # 3등까지만 메달 표시, 그 외엔 숫자
                     if i == 1: medal = "🥇"
                     elif i == 2: medal = "🥈"
                     elif i == 3: medal = "🥉"
-                    else: medal = f"**{i}**"
+                    else: medal = f"**{get_ordinal(i)}**"
                     
-                    # 본인 이름은 강조(색상 또는 볼드)해서 표시
                     display_name = f"<span style='color:#29b5e8; font-weight:bold;'>{row.name}</span>" if st.session_state.user_name == row.name else f"{row.name}"
                     st.markdown(f"{medal} {display_name} : `{row.weight} lb`", unsafe_allow_html=True)
 
         with col_m:
             display_full_rank(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
-            
         with col_f:
             display_full_rank(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
     else:
-        st.write("아직 등록된 기록이 없습니다. 첫 주인공이 되어보세요!")
+        st.write("첫 주인공이 되어보세요!")
 
 st.divider()
 
-# --- 5. 실시간 응원 댓글 (삭제 기능 추가) ---
+# --- 5. 실시간 응원 댓글 ---
 st.subheader("💬 실시간 응원 한마디")
 
 if st.session_state.is_auth:
@@ -141,7 +143,6 @@ else:
 
 if not comments_df.empty:
     with st.expander("최근 댓글 보기", expanded=True):
-        # 최신순으로 정렬해서 보여주기
         display_comments = comments_df.sort_index(ascending=False).head(10)
         for idx, row in display_comments.iterrows():
             c_col1, c_col2 = st.columns([5, 1])
@@ -149,12 +150,11 @@ if not comments_df.empty:
                 st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
                 st.info(row['comment'])
             with c_col2:
-                # [본인 확인 로직] 본인이 쓴 댓글만 삭제 버튼 노출
                 if st.session_state.is_auth and st.session_state.user_name == row['name']:
                     if st.button("🗑️", key=f"del_{idx}"):
                         updated_comments = comments_df.drop(idx)
                         conn.update(worksheet="comments", data=updated_comments)
-                        st.warning("댓글이 삭제되었습니다.")
+                        st.warning("삭제됨")
                         time.sleep(1)
                         st.rerun()
 
@@ -172,7 +172,7 @@ if not st.session_state.is_auth:
                 pw_input = st.text_input("비밀번호", type="password")
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
-                    stored_pw = str(user_rows.iloc[-1]['password']).strip()
+                    stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "") # 따옴표 제거 후 비교
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
                         st.session_state.user_name = selected_name
@@ -189,7 +189,7 @@ if not st.session_state.is_auth:
                     st.session_state.is_auth = True
                     st.session_state.user_name = new_name
                     st.session_state.user_gender = new_gender
-                    st.session_state.temp_pw = new_pw
+                    st.session_state.temp_pw = f"'{new_pw}" # '0' 보존을 위한 접두어
                     st.rerun()
 
 # --- 7. 개인 차트 및 상세 기록 ---
@@ -221,7 +221,6 @@ if st.session_state.is_auth:
 
     # --- 8. 기록 업데이트 ---
     st.subheader("💪 오늘의 기록 업데이트")
-    
     try:
         ex_index = exercise_list.index(selected_rank_exercise)
     except:
@@ -234,14 +233,14 @@ if st.session_state.is_auth:
     if prev_max > 0:
         st.info(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
         percents = list(range(50, 101, 5))
-        with st.expander("📊 퍼센트별 중량 확인", expanded=True):
+        with st.expander("📊 퍼센트별 중량 확인"):
             for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
                 st.metric(label=f"{p}%", value=f"{calc_w} lb")
     
     st.divider()
-    new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0, key=f"weight_{save_exercise}")
-    new_memo = st.text_input("오늘의 메모", value="", placeholder="예: 컨디션 좋음", key=f"memo_{save_exercise}")
+    new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0)
+    new_memo = st.text_input("오늘의 메모", placeholder="예: 컨디션 좋음")
     
     if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
         if new_weight > 0:
@@ -250,7 +249,6 @@ if st.session_state.is_auth:
             last_row = user_data.iloc[-1] if not user_data.empty else None
             final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
             
-            # [수정] final_pw가 이미 '로 시작하지 않는다면 붙여줌
             if not str(final_pw).startswith("'"):
                 final_pw = f"'{final_pw}"
             
@@ -272,6 +270,3 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
-
-
-
