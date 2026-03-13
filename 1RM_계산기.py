@@ -313,6 +313,7 @@ if st.session_state.is_auth:
                     st.rerun()
 
             # 기록 리스트 출력 (모바일 최적화 버전)
+            # --- 기록 관리 리스트 최종 수정 버전 (들여쓰기 주의) ---
             for idx, row in history_display_df.iterrows():
                 # 1. 정보 표시 (날짜, 종목, 무게 한 줄 배치)
                 m_val = str(row['memo']).strip()
@@ -330,7 +331,7 @@ if st.session_state.is_auth:
                 </div>
                 """, unsafe_allow_html=True)
 
-                # 2. 메모 영역 (글자 크기 대폭 확대 및 강조)
+                # 2. 메모 영역 (글자 크기 확대 및 박스 디자인)
                 if m_val and m_val.lower() != 'nan' and m_val != '':
                     st.markdown(f"""
                     <div style='margin: 8px 0; font-size: 1.1rem; color: #ffffff; background-color: #333; 
@@ -341,8 +342,7 @@ if st.session_state.is_auth:
                 else:
                     st.caption("📝 기록된 메모가 없습니다.")
 
-                # 3. 버튼 배치 (가로 5:5 비율로 바짝 붙이기)
-                # columns 비율을 [1, 1]로 주어야 모바일에서 옆으로 딱 붙습니다.
+                # 3. 버튼 배치 (가로 5:5 비율)
                 btn_col1, btn_col2 = st.columns([1, 1])
                 
                 with btn_col1:
@@ -353,11 +353,11 @@ if st.session_state.is_auth:
                     if st.button("🗑️ 삭제", key=f"del_{idx}", use_container_width=True):
                         updated_df = df.drop(idx)
                         conn.update(worksheet="sheet1", data=updated_df)
-                        st.warning("삭제 중...")
+                        st.warning("삭제 완료!")
                         time.sleep(0.5)
                         st.rerun()
                 
-                # 구분선 (간격을 좁게 조정)
+                # 하단 구분선
                 st.markdown("<hr style='margin: 12px 0; border: 0.1px solid #444; opacity: 0.2;'>", unsafe_allow_html=True)
 
     else:
@@ -409,6 +409,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
