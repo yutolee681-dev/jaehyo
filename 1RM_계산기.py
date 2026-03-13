@@ -48,6 +48,9 @@ def get_full_data():
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
+        # NaN 값을 빈 문자열('')로 먼저 바꿉니다.
+        raw_df = raw_df.fillna('')
+        
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
         for col, default in required_cols.items():
             if col not in raw_df.columns:
@@ -273,13 +276,18 @@ if st.session_state.is_auth:
                 col1, col2, col3 = st.columns([2, 1, 0.5])
                 with col1:
                     st.markdown(f"**{row['date']}** | {row['exercise']}")
-                    if row['memo']: st.caption(f"📝 {row['memo']}")
+                    
+                    # 메모 처리 로직
+                    memo_val = str(row['memo']).strip()
+                    if memo_val and memo_val != 'nan' and memo_val != '':
+                        st.caption(f"📝 {memo_val}")
+                    else:
+                        st.caption("📝 기록된 메모가 없습니다.") # ← NaN 대신 나올 멘트
+                        
                 with col2:
                     st.markdown(f"`{row['weight']} lb`")
                 with col3:
-                    # 각 행 옆에 삭제 버튼 배치
                     if st.button("🗑️", key=f"record_del_{idx}"):
-                        # 원본 df에서 해당 인덱스 삭제 (df는 전체 데이터프레임)
                         updated_df = df.drop(idx)
                         conn.update(worksheet="sheet1", data=updated_df)
                         st.warning("기록이 삭제되었습니다.")
@@ -296,6 +304,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
