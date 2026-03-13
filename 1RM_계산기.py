@@ -71,37 +71,45 @@ if st.session_state.is_auth:
             st.rerun()
     st.divider()
 
-# --- 4. 실시간 랭킹 (남/여 병렬 배치) ---
-st.subheader("🏆 박스 실시간 랭킹")
+# --- 4. 실시간 전체 랭킹 (남/여 병렬 배치) ---
+st.subheader("🏆 박스 실시간 랭킹 (전체)")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
 rank_df = df[df['exercise'] == selected_rank_exercise].copy()
 rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce')
+# 이름별 최고 기록만 남기기
 best_rank_df = rank_df.sort_values('weight', ascending=False).drop_duplicates('name')
 
-with st.expander(f"🔥 {selected_rank_exercise} 실시간 순위", expanded=True):
+with st.expander(f"🔥 {selected_rank_exercise} 전체 순위 보기", expanded=True):
     if not best_rank_df.empty:
-        # 왼쪽/오른쪽 단 분할
         col_m, col_f = st.columns(2)
         
-        def display_rank_list(data, title_icon):
+        def display_full_rank(data, title_icon):
             st.markdown(f"#### {title_icon}")
-            sorted_data = data.sort_values(by='weight', ascending=False).head(5)
+            # 중량 내림차순 정렬
+            sorted_data = data.sort_values(by='weight', ascending=False)
+            
             if sorted_data.empty:
                 st.write("기록 없음")
             else:
                 for i, row in enumerate(sorted_data.itertuples(), 1):
-                    medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"**{i}**"
-                    # 가독성을 위해 중량은 코드 블록(` `) 처리
-                    st.markdown(f"{medal} **{row.name}** : `{row.weight} lb` ")
+                    # 3등까지만 메달 표시, 그 외엔 숫자
+                    if i == 1: medal = "🥇"
+                    elif i == 2: medal = "🥈"
+                    elif i == 3: medal = "🥉"
+                    else: medal = f"**{i}**"
+                    
+                    # 본인 이름은 강조(색상 또는 볼드)해서 표시
+                    display_name = f"<span style='color:#29b5e8; font-weight:bold;'>{row.name}</span>" if st.session_state.user_name == row.name else f"{row.name}"
+                    st.markdown(f"{medal} {display_name} : `{row.weight} lb`", unsafe_allow_html=True)
 
         with col_m:
-            display_rank_list(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
+            display_full_rank(best_rank_df[best_rank_df['gender'] == "남성"], "♂️ Male")
             
         with col_f:
-            display_rank_list(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
+            display_full_rank(best_rank_df[best_rank_df['gender'] == "여성"], "♀️ Female")
     else:
-        st.write("첫 주인공이 되어보세요!")
+        st.write("아직 등록된 기록이 없습니다. 첫 주인공이 되어보세요!")
 
 st.divider()
 
@@ -264,5 +272,6 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
