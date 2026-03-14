@@ -177,7 +177,7 @@ if st.session_state.is_auth:
         with col_c1:
             new_comment = st.text_input(
                 f"{st.session_state.user_name}님, 한마디!", 
-                placeholder="예: 오늘 컨디션 좋으시네요! 🔥"
+                placeholder="예: 재효님 클린 ㄷㄷㄷ! 🔥"
             )
         with col_c2:
             submit_comment = st.form_submit_button("등록")
@@ -391,7 +391,7 @@ if st.session_state.is_auth:
     with st.form(key="record_update_form_v3", clear_on_submit=False):
         st.markdown("#### 🏋️ 새로운 기록 입력")
         new_weight = st.number_input("성공한 중량 (lbs)", value=prev_max if prev_max > 0 else 0.0, step=5.0)
-        new_memo = st.text_input("오늘의 메모 (컨디션 등)", placeholder="예: 컨디션 최상! 가뿐함")
+        new_memo = st.text_input("오늘의 메모 (컨디션 등)", placeholder="예: 가벼웠는데? 다음번엔 5lbs 높여서 도전..")
         submit_record = st.form_submit_button("🔥 새로운 기록 저장하기", use_container_width=True)
 
     # 4. 데이터 저장 로직
@@ -427,6 +427,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
