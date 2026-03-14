@@ -178,7 +178,7 @@ if not comments_df.empty:
                 if st.session_state.is_auth and st.session_state.user_name == row['name']:
                     if st.button("🗑️", key=f"del_{idx}"):
                         updated_comments = comments_df.drop(idx)
-                        conn.update(worksheet="comments", data=updated_comments)
+                        conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=all_comments)
                         st.warning("삭제됨")
                         time.sleep(1)
                         st.rerun()
@@ -283,7 +283,7 @@ if st.session_state.is_auth:
                 "gender": st.session_state.user_gender, "memo": new_memo 
             }])
             updated_df = pd.concat([df, new_record], ignore_index=True)
-            conn.update(worksheet="sheet1", data=updated_df)
+            conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=updated_df)
             st.balloons()
             time.sleep(1)
             st.rerun()
@@ -295,6 +295,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
