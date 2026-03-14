@@ -172,7 +172,7 @@ st.subheader("💬 실시간 응원 한마디")
 
 # 1. 댓글 입력창
 if st.session_state.is_auth:
-    with st.form(key="comment_form_v3", clear_on_submit=True):
+    with st.form(key="comment_form_final", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
             new_comment = st.text_input(
@@ -195,38 +195,37 @@ if st.session_state.is_auth:
 else:
     st.info("로그인하면 응원 댓글을 남길 수 있습니다.")
 
-# 2. 댓글 출력창 (심플 디자인)
+# 2. 댓글 출력창 (리스트만 깔끔하게 노출)
 if not comments_df.empty:
-    with st.container():
-        # 최신순 10개
-        display_comments = comments_df.sort_index(ascending=False).head(10)
+    st.write("---")  # 구분선 하나 추가
+    # 최신순 10개
+    display_comments = comments_df.sort_index(ascending=False).head(10)
+    
+    for idx, row in display_comments.iterrows():
+        c_col_main, c_col_del = st.columns([10, 1])
         
-        for idx, row in display_comments.iterrows():
-            c_col_main, c_col_del = st.columns([10, 1])
-            
-            with c_col_main:
-                # 배경은 반투명 회색, 글자색은 시스템 자동(inherit)을 사용하여 다크모드 해결
-                st.markdown(f"""
-                    <div style="margin-bottom: 8px; padding: 10px; border-radius: 8px; 
-                                background-color: rgba(120, 120, 120, 0.15); 
-                                border: 0.5px solid rgba(120, 120, 120, 0.2);">
-                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 3px;">
-                            <span style="font-weight: bold; font-size: 0.85rem; color: #29b5e8;">{row['name']}</span>
-                            <span style="color: #888; font-size: 0.7rem;">{row['date']}</span>
-                        </div>
-                        <div style="font-size: 0.95rem; line-height: 1.4; color: inherit;">
-                            {row['comment']}
-                        </div>
+        with c_col_main:
+            # 다크모드/라이트모드 자동 대응 디자인
+            st.markdown(f"""
+                <div style="margin-bottom: 8px; padding: 10px; border-radius: 8px; 
+                            background-color: rgba(120, 120, 120, 0.15); 
+                            border: 0.5px solid rgba(120, 120, 120, 0.2);">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 3px;">
+                        <span style="font-weight: bold; font-size: 0.85rem; color: #29b5e8;">{row['name']}</span>
+                        <span style="color: #888; font-size: 0.7rem;">{row['date']}</span>
                     </div>
-                """, unsafe_allow_html=True)
-                
-            with c_col_del:
-                if st.session_state.is_auth and st.session_state.user_name == row['name']:
-                    # 삭제 버튼 디자인 최소화
-                    if st.button("✕", key=f"del_v3_{idx}"):
-                        updated_comments = comments_df.drop(idx)
-                        conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=updated_comments)
-                        st.rerun()
+                    <div style="font-size: 0.95rem; line-height: 1.4; color: inherit;">
+                        {row['comment']}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        with c_col_del:
+            if st.session_state.is_auth and st.session_state.user_name == row['name']:
+                if st.button("✕", key=f"del_final_{idx}"):
+                    updated_comments = comments_df.drop(idx)
+                    conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=updated_comments)
+                    st.rerun()
 else:
     st.caption("아직 응원이 없어요.")
 
@@ -459,6 +458,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
