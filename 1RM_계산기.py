@@ -366,30 +366,27 @@ if st.session_state.is_auth:
     ex_record = my_data[my_data['exercise'] == save_exercise]
     prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
     
-# 2. 훈련 무게 계산기 (이 부분이 핵심입니다)
+    # 2. 훈련 무게 계산기 (코드 노출 방지 처리)
     if prev_max > 0:
         st.markdown(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
         with st.expander("📊 훈련 무게 계산 (50% ~ 100%)", expanded=False):
             percents = list(range(50, 101, 5))
             
-            # 1. 먼저 빈 문자열(변수)을 만듭니다.
-            html_all = "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #eee;'>"
+            # HTML 코드를 한 줄로 길게 이어붙여서 공백 문제를 차단합니다.
+            html_list = []
+            html_list.append("<div style='background-color:#f9f9f9;padding:15px;border-radius:10px;border:1px solid #eee;'>")
             
-            # 2. 루프를 돌면서 문자열을 'html_all' 변수에 차곡차곡 쌓기만 합니다. (여기서 출력 금지)
             for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                html_all += f"""
-                <div style='display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;'>
-                    <span style='font-weight: bold; font-size: 1.1rem; color: #555;'>{p}%</span>
-                    <span style='font-weight: bold; font-size: 1.1rem; color: #29b5e8;'>{calc_w} <small>lbs</small></span>
-                </div>
-                """
+                # f-string 내부의 줄바꿈을 제거하여 '코드 노출' 현상을 방지합니다.
+                row = f"<div style='display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #ddd;'><span style='font-weight:bold;font-size:1.1rem;color:#555;'>{p}%</span><span style='font-weight:bold;font-size:1.1rem;color:#29b5e8;'>{calc_w} <small>lbs</small></span></div>"
+                html_list.append(row)
             
-            # 3. 루프가 다 끝난 후, 닫는 태그를 붙여줍니다.
-            html_all += "</div>"
+            html_list.append("</div>")
             
-            # 4. 이제 완성된 전체 HTML 딱 하나를 한 번에 출력합니다!
-            st.markdown(html_all, unsafe_allow_html=True)
+            # 완성된 리스트를 하나의 문자열로 합친 뒤 출력
+            full_html = "".join(html_list)
+            st.markdown(full_html, unsafe_allow_html=True)
     else:
         st.caption("아직 기록이 없네요. 오늘 첫 기록을 남겨보세요!")
 
@@ -440,6 +437,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
