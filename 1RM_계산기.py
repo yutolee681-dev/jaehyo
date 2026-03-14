@@ -366,29 +366,30 @@ if st.session_state.is_auth:
     ex_record = my_data[my_data['exercise'] == save_exercise]
     prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
     
-    # 2. 훈련 무게 계산기 (5% 단위 세로 리스트)
+# 2. 훈련 무게 계산기 (이 부분이 핵심입니다)
     if prev_max > 0:
         st.markdown(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
         with st.expander("📊 훈련 무게 계산 (50% ~ 100%)", expanded=False):
             percents = list(range(50, 101, 5))
             
-            # HTML 구조를 담을 변수 초기화
-            html_calc = "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #eee;'>"
+            # 1. 먼저 빈 문자열(변수)을 만듭니다.
+            html_all = "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #eee;'>"
             
+            # 2. 루프를 돌면서 문자열을 'html_all' 변수에 차곡차곡 쌓기만 합니다. (여기서 출력 금지)
             for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                # 각 행을 추가 (f-string 내부에 HTML 태그를 정확히 배치)
-                html_calc += f"""
+                html_all += f"""
                 <div style='display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;'>
                     <span style='font-weight: bold; font-size: 1.1rem; color: #555;'>{p}%</span>
                     <span style='font-weight: bold; font-size: 1.1rem; color: #29b5e8;'>{calc_w} <small>lbs</small></span>
                 </div>
                 """
             
-            html_calc += "</div>"
+            # 3. 루프가 다 끝난 후, 닫는 태그를 붙여줍니다.
+            html_all += "</div>"
             
-            # 출력: 반드시 st.markdown과 unsafe_allow_html=True 조합 사용
-            st.markdown(html_calc, unsafe_allow_html=True)
+            # 4. 이제 완성된 전체 HTML 딱 하나를 한 번에 출력합니다!
+            st.markdown(html_all, unsafe_allow_html=True)
     else:
         st.caption("아직 기록이 없네요. 오늘 첫 기록을 남겨보세요!")
 
@@ -439,6 +440,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
