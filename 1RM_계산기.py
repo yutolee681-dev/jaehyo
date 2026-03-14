@@ -68,8 +68,6 @@ def get_comments():
             ttl=0
         )
 
-        st.write("DEBUG comments:", c_df)
-
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
 
@@ -316,6 +314,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
