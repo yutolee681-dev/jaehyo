@@ -37,35 +37,53 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # 변경 후
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
+SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
+
 def get_full_data():
     try:
-        # spreadsheet=SHEET_URL 을 추가해서 확실하게 경로를 찍어줍니다.
         raw_df = conn.read(
-    spreadsheet="1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4",
-    worksheet="sheet1",
-    ttl=0
-)
-        st.write("RAW DATA")
-        st.write(raw_df)
+            spreadsheet=SHEET_ID,
+            worksheet="sheet1",
+            ttl=0
+        )
+
+        st.write("DEBUG sheet1:", raw_df)
 
         if raw_df is None or raw_df.empty:
-            return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
-        
+            return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
+
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
+
         for col, default in required_cols.items():
             if col not in raw_df.columns:
                 raw_df[col] = default
+
         return raw_df
-    except Exception:
-        return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
+
+    except Exception as e:
+        st.error(f"GSheets read error: {e}")
+        return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
+
 
 def get_comments():
     try:
-        # spreadsheet=SHEET_URL 추가
-        c_df = conn.read(spreadsheet=SHEET_URL, worksheet="comments", ttl=0)
-        return c_df if c_df is not None else pd.DataFrame(columns=['name', 'comment', 'date'])
-    except:
-        return pd.DataFrame(columns=['name', 'comment', 'date'])
+        c_df = conn.read(
+            spreadsheet=SHEET_ID,
+            worksheet="comments",
+            ttl=0
+        )
+
+        st.write("DEBUG comments:", c_df)
+
+        if c_df is None:
+            return pd.DataFrame(columns=['name','comment','date'])
+
+        return c_df
+
+    except Exception as e:
+        st.error(f"GSheets comment error: {e}")
+        return pd.DataFrame(columns=['name','comment','date'])
+
 
 df = get_full_data()
 st.write(df)
@@ -303,6 +321,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
