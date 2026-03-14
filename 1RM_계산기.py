@@ -369,13 +369,22 @@ if st.session_state.is_auth:
     # 기존 기록이 있다면 퍼센트 계산기 표시
     if prev_max > 0:
         st.markdown(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
-        with st.expander("📊 오늘의 훈련 무게 계산 (Percentage)", expanded=False):
-            p_cols = st.columns(3)
-            percents = [50, 60, 70, 80, 90, 100]
-            for i, p in enumerate(percents):
+        with st.expander("📊 오늘의 훈련 무게 계산 (리스트)", expanded=False):
+            # percents 범위를 50%부터 100%까지 5% 단위로 설정
+            percents = list(range(50, 101, 5))
+            
+            # 표 형태로 깔끔하게 출력 (모바일에서 가로가 안 깨짐)
+            html_calc = "<div style='background-color: #f9f9f9; padding: 10px; border-radius: 10px; border: 1px solid #eee;'>"
+            for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                with p_cols[i % 3]:
-                    st.metric(label=f"{p}%", value=f"{calc_w} lb")
+                html_calc += f"""
+                    <div style='display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid #ddd;'>
+                        <span style='font-weight: bold; font-size: 1.1rem; color: #555;'>{p}%</span>
+                        <span style='font-weight: bold; font-size: 1.1rem; color: #29b5e8;'>{calc_w} <small>lbs</small></span>
+                    </div>
+                """
+            html_calc += "</div>"
+            st.markdown(html_calc, unsafe_allow_html=True)
     else:
         st.caption("아직 기록이 없네요. 오늘 첫 기록을 남겨보세요!")
 
@@ -436,6 +445,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
