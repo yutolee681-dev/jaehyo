@@ -43,11 +43,11 @@ def get_full_data():
     try:
         raw_df = conn.read(
             spreadsheet=SHEET_ID,
-            worksheet="sheet1",
+            worksheet="Sheet1",
             ttl=0
         )
 
-        st.write("DEBUG sheet1:", raw_df)
+        st.write("DEBUG Sheet1:", raw_df)
 
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
@@ -309,7 +309,7 @@ if st.session_state.is_auth:
                 "gender": st.session_state.user_gender, "memo": new_memo 
             }])
             updated_df = pd.concat([df, new_record], ignore_index=True)
-            conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=updated_df)
+            conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=updated_df)
             st.balloons()
             time.sleep(1)
             st.rerun()
@@ -321,6 +321,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
