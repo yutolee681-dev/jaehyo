@@ -372,46 +372,43 @@ if st.session_state.is_auth:
         with st.expander("📊 훈련 무게 계산 (50% ~ 100%)", expanded=False):
             percents = list(range(50, 101, 5))
             
-            # 이 변수에 HTML 코드를 담습니다.
+            # HTML 구조를 담을 변수 초기화
             html_calc = "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #eee;'>"
+            
             for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
+                # 각 행을 추가 (f-string 내부에 HTML 태그를 정확히 배치)
                 html_calc += f"""
-                    <div style='display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;'>
-                        <span style='font-weight: bold; font-size: 1.1rem; color: #555;'>{p}%</span>
-                        <span style='font-weight: bold; font-size: 1.1rem; color: #29b5e8;'>{calc_w} <small>lbs</small></span>
-                    </div>
+                <div style='display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;'>
+                    <span style='font-weight: bold; font-size: 1.1rem; color: #555;'>{p}%</span>
+                    <span style='font-weight: bold; font-size: 1.1rem; color: #29b5e8;'>{calc_w} <small>lbs</small></span>
+                </div>
                 """
+            
             html_calc += "</div>"
             
-            # 핵심: 반드시 st.markdown과 unsafe_allow_html=True를 사용해야 합니다!
+            # 출력: 반드시 st.markdown과 unsafe_allow_html=True 조합 사용
             st.markdown(html_calc, unsafe_allow_html=True)
     else:
         st.caption("아직 기록이 없네요. 오늘 첫 기록을 남겨보세요!")
 
     st.divider()
 
-    # 3. 입력 폼 (모바일 대응을 위해 세로 배치 강조)
+    # 3. 입력 폼
     with st.form(key="record_update_form", clear_on_submit=False):
         st.markdown("#### 🏋️ 새로운 기록 입력")
-        # 기본값을 기존 최고 기록으로 자동 설정
         new_weight = st.number_input("성공한 중량 (lbs)", value=prev_max if prev_max > 0 else 0.0, step=5.0)
         new_memo = st.text_input("오늘의 메모 (컨디션 등)", placeholder="예: 컨디션 최상! 가뿐함")
-        
-        # 버튼을 크게 만들어 모바일 터치 편의성 증대
         submit_record = st.form_submit_button("🔥 새로운 기록 저장하기", use_container_width=True)
 
     # 4. 데이터 저장 로직
     if submit_record:
         if new_weight > 0:
             kst_now = datetime.now() + timedelta(hours=9)
-            
-            # 기존 비밀번호 유지 로직
             user_data = df[df['name'] == st.session_state.user_name]
             last_row = user_data.iloc[-1] if not user_data.empty else None
             final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
             
-            # 엑셀/시트에서 0으로 시작하는 비밀번호 보존을 위한 접두어 처리
             if not str(final_pw).startswith("'"):
                 final_pw = f"'{final_pw}"
             
@@ -426,18 +423,14 @@ if st.session_state.is_auth:
             }])
             
             updated_df = pd.concat([df, new_record], ignore_index=True)
-            
-            # 구글 시트 업데이트 (SHEET_URL 명시로 에러 방지)
             conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=updated_df)
             
             st.balloons()
-            st.success(f"성공! {save_exercise} {new_weight} lbs 기록이 저장되었습니다.")
+            st.success(f"성공! {save_exercise} {new_weight} lbs 기록 저장 완료!")
             time.sleep(1)
             st.rerun()
         else:
             st.error("중량을 입력해주세요!")
-else:
-    st.warning("로그인 후 이용 가능합니다.")
 
     st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
 
@@ -446,6 +439,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
