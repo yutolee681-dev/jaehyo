@@ -46,8 +46,6 @@ def get_full_data():
             ttl=0
         )
 
-        st.write("DEBUG Sheet1:", raw_df)
-
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
@@ -318,16 +316,6 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
-
-
-
-
-
-
-
-
-
-
 
 
 
