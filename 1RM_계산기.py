@@ -91,9 +91,18 @@ st.title("🏋️ 1RM을 기억해")
 
 # --- 3. 최상단 환영 메시지 및 로그아웃 ---
 if st.session_state.is_auth:
-    col_welcome, col_logout = st.columns([3, 1])
+    # 3개 컬럼으로 나누어 환영인사 / 새로고침 / 로그아웃 배치
+    col_welcome, col_refresh, col_logout = st.columns([2, 1, 1])
+    
     with col_welcome:
-        st.subheader(f"👋 {st.session_state.user_name}님")
+        st.markdown(f"👋 **{st.session_state.user_name}**님")
+    
+    with col_refresh:
+        # 모바일에서 누르기 편하게 '새로고침' 버튼 추가
+        if st.button("🔄 갱신", use_container_width=True):
+            st.cache_data.clear() # 캐시된 시트 데이터 삭제
+            st.rerun()
+            
     with col_logout:
         if st.button("로그아웃", use_container_width=True):
             st.session_state.is_auth = False
@@ -427,6 +436,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
