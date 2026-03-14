@@ -301,32 +301,55 @@ if st.session_state.is_auth:
             )
     st.divider()
 
-    # --- 8. 기록 업데이트 ---
-    st.subheader("💪 오늘의 기록 업데이트")
+# --- 8. 오늘의 기록 업데이트 ---
+st.subheader("💪 오늘의 기록 업데이트")
+
+if st.session_state.is_auth:
+    # 랭킹에서 선택한 종목을 기본값으로 가져오기
     try:
         ex_index = exercise_list.index(selected_rank_exercise)
     except:
         ex_index = 0
 
+    # 1. 종목 선택 및 기존 기록 안내
     save_exercise = st.selectbox("종목 선택", exercise_list, index=ex_index)
+    
+    # 해당 종목의 내 기존 데이터 찾기
     ex_record = my_data[my_data['exercise'] == save_exercise]
     prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
     
+    # 기존 기록이 있다면 퍼센트 계산기 표시
     if prev_max > 0:
-        st.info(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
-        percents = list(range(50, 101, 5))
-        with st.expander("📊 퍼센트별 중량 확인"):
-            for p in percents:
+        st.markdown(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
+        with st.expander("📊 오늘의 훈련 무게 계산 (Percentage)", expanded=False):
+            p_cols = st.columns(3)
+            percents = [50, 60, 70, 80, 90, 100]
+            for i, p in enumerate(percents):
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
-                st.metric(label=f"{p}%", value=f"{calc_w} lb")
-    
+                with p_cols[i % 3]:
+                    st.metric(label=f"{p}%", value=f"{calc_w} lb")
+    else:
+        st.caption("아직 기록이 없네요. 오늘 첫 기록을 남겨보세요!")
+
     st.divider()
-    new_weight = st.number_input(f"오늘의 {save_exercise} 중량 (lbs)", value=prev_max, step=5.0)
-    new_memo = st.text_input("오늘의 메모", placeholder="예: 컨디션 좋음")
-    
-    if st.button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True):
+
+    # 2. 입력 폼 (st.form을 써서 한 번에 제출)
+    with st.form(key="record_update_form", clear_on_submit=False):
+        f_col1, f_col2 = st.columns([1, 1])
+        with f_col1:
+            # 기본값을 기존 최고 기록으로 설정해서 입력 편의성 증대
+            new_weight = st.number_input("성공한 중량 (lbs)", value=prev_max if prev_max > 0 else 0.0, step=5.0)
+        with f_col2:
+            new_memo = st.text_input("오늘의 메모", placeholder="예: 컨디션 굿!")
+        
+        submit_record = st.form_submit_button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True)
+
+    # 3. 데이터 저장 로직
+    if submit_record:
         if new_weight > 0:
             kst_now = datetime.now() + timedelta(hours=9)
+            
+            # 비밀번호 보존 로직
             user_data = df[df['name'] == st.session_state.user_name]
             last_row = user_data.iloc[-1] if not user_data.empty else None
             final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
@@ -335,15 +358,28 @@ if st.session_state.is_auth:
                 final_pw = f"'{final_pw}"
             
             new_record = pd.DataFrame([{
-                "name": st.session_state.user_name, "exercise": save_exercise, "weight": new_weight, 
-                "date": kst_now.strftime("%Y-%m-%d"), "password": final_pw, 
-                "gender": st.session_state.user_gender, "memo": new_memo 
+                "name": st.session_state.user_name, 
+                "exercise": save_exercise, 
+                "weight": new_weight, 
+                "date": kst_now.strftime("%Y-%m-%d"), 
+                "password": final_pw, 
+                "gender": st.session_state.user_gender, 
+                "memo": new_memo 
             }])
+            
             updated_df = pd.concat([df, new_record], ignore_index=True)
-            conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=updated_df)
+            
+            # 에러 방지용 SHEET_URL 명시
+            conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=updated_df)
+            
             st.balloons()
+            st.success(f"축하합니다! {save_exercise} {new_weight}lbs 저장 완료!")
             time.sleep(1)
             st.rerun()
+        else:
+            st.error("중량을 입력해주세요!")
+else:
+    st.warning("로그인 후 이용 가능합니다.")
 
     st.markdown("<br><a href='#link_to_top' style='text-decoration:none;'><button style='width:100%; border-radius:10px; border:1px solid #ddd; background-color:#f9f9f9; padding:10px; cursor:pointer;'>🔝 맨 위로 가기</button></a>", unsafe_allow_html=True)
 
@@ -352,6 +388,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
