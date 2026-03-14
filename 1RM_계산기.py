@@ -394,7 +394,7 @@ if st.session_state.is_auth:
             }])
             
             updated_df = pd.concat([df, new_record], ignore_index=True)
-            conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=updated_df)
+            conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=updated_df)
             st.balloons()
             st.success(f"성공! {save_exercise} {new_weight} lbs 저장 완료!")
             time.sleep(1)
@@ -411,6 +411,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
