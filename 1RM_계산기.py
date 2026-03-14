@@ -161,11 +161,15 @@ st.divider()
 # --- 5. 실시간 응원 댓글 ---
 st.subheader("💬 실시간 응원 한마디")
 
+# 댓글 입력창
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
-            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="예: 재효님 클린 미쳤네요ㄷㄷ")
+            new_comment = st.text_input(
+                f"{st.session_state.user_name}님, 한마디!", 
+                placeholder="예: 오늘 컨디션 좋으시네요! 🔥"
+            )
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         
@@ -177,29 +181,42 @@ if st.session_state.is_auth:
                 "date": kst_now.strftime("%m/%d %H:%M")
             }])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
+            # 404 방지를 위해 SHEET_URL 명시
             conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=all_comments)
-            st.success("댓글 등록 완료!")
-            time.sleep(1)
+            st.success("등록 완료!")
+            time.sleep(0.5)
             st.rerun()
 else:
-    st.info("로그인하면 댓글을 남길 수 있습니다.")
+    st.info("로그인하면 응원 댓글을 남길 수 있습니다.")
 
+# 댓글 출력창 (작고 깔끔한 디자인)
 if not comments_df.empty:
-    with st.expander("최근 댓글 보기", expanded=True):
+    with st.expander("최근 응원 메시지", expanded=True):
+        # 최신순 정렬 (최근 10개만)
         display_comments = comments_df.sort_index(ascending=False).head(10)
+        
         for idx, row in display_comments.iterrows():
-            c_col1, c_col2 = st.columns([5, 1])
-            with c_col1:
-                st.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small>", unsafe_allow_html=True)
-                st.info(row['comment'])
-            with c_col2:
+            c_col_main, c_col_del = st.columns([10, 1])
+            
+            with c_col_main:
+                # 작성자, 날짜, 댓글 내용을 한 줄에 작게 표시
+                st.markdown(f"""
+                    <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 0.5px solid #f0f0f0;">
+                        <span style="font-weight: bold; font-size: 0.85rem; color: #333;">{row['name']}</span>
+                        <span style="color: #aaa; font-size: 0.7rem; margin-left: 8px;">{row['date']}</span><br>
+                        <span style="font-size: 0.9rem; color: #444;">{row['comment']}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+            with c_col_del:
+                # 본인 댓글일 경우만 아주 작은 삭제 버튼 표시
                 if st.session_state.is_auth and st.session_state.user_name == row['name']:
-                    if st.button("🗑️", key=f"del_{idx}"):
+                    if st.button("x", key=f"del_{idx}", help="삭제"):
                         updated_comments = comments_df.drop(idx)
-                        conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=all_comments)
-                        st.warning("삭제됨")
-                        time.sleep(1)
+                        conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=updated_comments)
                         st.rerun()
+else:
+    st.caption("아직 응원이 없어요. 첫 응원을 남겨보세요!")
 
 st.divider()
 
@@ -335,6 +352,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
