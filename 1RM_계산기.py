@@ -370,10 +370,9 @@ if st.session_state.is_auth:
     if prev_max > 0:
         st.markdown(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
         with st.expander("📊 훈련 무게 계산 (50% ~ 100%)", expanded=False):
-            # 50%부터 100%까지 5% 단위로 리스트 생성
             percents = list(range(50, 101, 5))
             
-            # 모바일 가독성을 위해 배경색과 테두리가 있는 리스트 형태 디자인
+            # 이 변수에 HTML 코드를 담습니다.
             html_calc = "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #eee;'>"
             for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
@@ -384,6 +383,8 @@ if st.session_state.is_auth:
                     </div>
                 """
             html_calc += "</div>"
+            
+            # 핵심: 반드시 st.markdown과 unsafe_allow_html=True를 사용해야 합니다!
             st.markdown(html_calc, unsafe_allow_html=True)
     else:
         st.caption("아직 기록이 없네요. 오늘 첫 기록을 남겨보세요!")
@@ -445,6 +446,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
