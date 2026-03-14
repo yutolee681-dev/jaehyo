@@ -254,7 +254,7 @@ if not st.session_state.is_auth:
 
 # --- 7. 개인 데이터 분석 통합 (탭 방식) ---
 if st.session_state.is_auth:
-    # 최신 데이터 다시 불러오기 (수정/삭제 반영을 위해)
+    # 필터와 수정을 위해 최신 데이터 복사
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
     
@@ -263,7 +263,7 @@ if st.session_state.is_auth:
         tab1, tab2, tab3 = st.tabs(["🏆 최고 기록", "📈 성장률 분석", "📋 전체 히스토리"])
 
         with tab1:
-            # 최고 기록 차트 (기존과 동일)
+            # 최고 기록 차트 (기존 유지)
             chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
             base = alt.Chart(chart_df).encode(
@@ -275,59 +275,69 @@ if st.session_state.is_auth:
             st.altair_chart(bars + text, use_container_width=True)
 
         with tab2:
-            # 성장률 분석 (기존과 동일)
-            unique_ex = my_data['exercise'].unique()
+            # 성장률 분석 (기존 유지)
+            unique_ex = sorted(my_data['exercise'].unique())
             cols = st.columns(2)
             for i, ex in enumerate(unique_ex):
                 ex_data = my_data[my_data['exercise'] == ex].sort_values('date')
-                if len(ex_data) >= 1:
+                if not ex_data.empty:
                     first_w = ex_data.iloc[0]['weight']
                     last_w = ex_data.iloc[-1]['weight']
                     diff = last_w - first_w
                     with cols[i % 2]:
-                        st.metric(label=f"{ex}", value=f"{last_w} lbs", delta=f"{diff} lbs (Total)")
+                        st.metric(label=f"{ex}", value=f"{last_w} lbs", delta=f"{diff} lbs")
 
         with tab3:
-            # --- 수정 및 삭제 기능이 포함된 히스토리 ---
-            st.write("📝 기록 수정 및 삭제")
-            selected_history_ex = st.selectbox("종목 필터", ["전체 보기"] + sorted(list(unique_ex)), key="hist_filter")
+            # --- 목록형 히스토리 (클릭 시 세부 수정) ---
+            st.write("📝 기록을 클릭하면 수정/삭제할 수 있습니다.")
             
-            # 필터링된 데이터 (인덱스 유지를 위해 원본 df의 인덱스 보존)
-            hist_df = my_data.copy()
-            if selected_history_ex != "전체 보기":
-                hist_df = hist_df[hist_df['exercise'] == selected_history_ex]
+            # 1. 종목 필터 확실하게 적용
+            all_my_ex = sorted(my_data['exercise'].unique().tolist())
+            filter_ex = st.selectbox("종목 선택", ["전체 보기"] + all_my_ex, key="final_filter")
             
-            # 최신순 정렬
-            hist_df = hist_df.sort_values(by='date', ascending=False)
+            # 2. 데이터 필터링 및 최신순 정렬
+            display_df = my_data.copy()
+            if filter_ex != "전체 보기":
+                display_df = display_df[display_df['exercise'] == filter_ex]
+            
+            display_df = display_df.sort_values(by='date', ascending=False)
 
-            if not hist_df.empty:
-                for idx, row in hist_df.iterrows():
-                    with st.expander(f"📅 {row['date']} | {row['exercise']} | {row['weight']}lbs"):
-                        # 수정 폼
-                        edit_col1, edit_col2 = st.columns(2)
-                        with edit_col1:
-                            edit_weight = st.number_input("중량 수정", value=float(row['weight']), step=5.0, key=f"edit_w_{idx}")
-                        with edit_col2:
-                            edit_memo = st.text_input("메모 수정", value=str(row['memo']), key=f"edit_m_{idx}")
+            # 3. 리스트 렌더링
+            if not display_df.empty:
+                for idx, row in display_df.iterrows():
+                    # 목록 한 줄 디자인 (클릭하면 열림)
+                    with st.expander(f"📅 {row['date']} | {row['exercise']} | {row['weight']} lbs"):
+                        st.markdown("#### ✏️ 기록 수정")
                         
-                        btn_col1, btn_col2 = st.columns(2)
-                        with btn_col1:
-                            if st.button("💾 수정 완료", key=f"save_{idx}", use_container_width=True):
-                                df.at[idx, 'weight'] = edit_weight
-                                df.at[idx, 'memo'] = edit_memo
+                        # 수정 입력창
+                        e_col1, e_col2 = st.columns(2)
+                        with e_col1:
+                            new_w = st.number_input("중량(lbs)", value=float(row['weight']), step=5.0, key=f"nw_{idx}")
+                        with e_col2:
+                            new_m = st.text_input("메모", value=str(row['memo']), key=f"nm_{idx}")
+                        
+                        # 수정/삭제 버튼
+                        b_col1, b_col2 = st.columns(2)
+                        with b_col1:
+                            if st.button("💾 수정 저장", key=f"sv_{idx}", use_container_width=True):
+                                # 원본 df의 인덱스를 찾아 업데이트
+                                df.at[idx, 'weight'] = new_w
+                                df.at[idx, 'memo'] = new_m
                                 conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=df)
-                                st.success("수정되었습니다!")
+                                st.success("수정 완료!")
                                 time.sleep(0.5)
                                 st.rerun()
-                        with btn_col2:
-                            if st.button("🗑️ 기록 삭제", key=f"del_rec_{idx}", use_container_width=True):
-                                updated_df = df.drop(idx)
-                                conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=updated_df)
-                                st.warning("삭제되었습니다.")
+                        
+                        with b_col2:
+                            if st.button("🗑️ 기록 삭제", key=f"dc_{idx}", use_container_width=True):
+                                # 해당 행 삭제
+                                final_df = df.drop(idx)
+                                conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=final_df)
+                                st.warning("기록 삭제됨")
                                 time.sleep(0.5)
                                 st.rerun()
             else:
-                st.write("표시할 기록이 없습니다.")
+                st.info("해당 종목의 기록이 없습니다.")
     st.divider()
 
 # --- 8. 오늘의 기록 업데이트 ---
@@ -417,6 +427,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
