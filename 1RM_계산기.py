@@ -170,30 +170,46 @@ st.divider()
 # --- 5. 실시간 응원 한마디 ---
 st.subheader("💬 실시간 응원 한마디")
 
-# 1. 댓글 입력창
+# 1. 댓글 입력창 (로그인 시에만 노출)
 if st.session_state.is_auth:
-    with st.form(key="comment_form_final", clear_on_submit=True):
+    with st.form(key="comment_form_v5", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
-            new_comment = st.text_input(
-                f"{st.session_state.user_name}님, 한마디!", 
-                placeholder="재효님 클린 ㅎㄷㄷ! 🔥"
-            )
+            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="오늘 컨디션 최고! 🔥")
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         
         if submit_comment and new_comment:
             kst_now = datetime.now() + timedelta(hours=9)
-            new_c_row = pd.DataFrame([{
-                "name": st.session_state.user_name,
-                "comment": new_comment,
-                "date": kst_now.strftime("%m/%d %H:%M")
-            }])
+            new_c_row = pd.DataFrame([{"name": st.session_state.user_name, "comment": new_comment, "date": kst_now.strftime("%m/%d %H:%M")}])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
             conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=all_comments)
             st.rerun()
 else:
     st.info("로그인하면 응원 댓글을 남길 수 있습니다.")
+
+# 2. 최근 응원 메시지 박스 (이 부분만 남김)
+if not comments_df.empty:
+    with st.expander("📂 최근 응원 메시지", expanded=True):
+        display_comments = comments_df.sort_index(ascending=False).head(10)
+        for idx, row in display_comments.iterrows():
+            c_main, c_del = st.columns([10, 1])
+            with c_main:
+                # 다크모드 대응을 위해 배경은 반투명 회색, 글자색은 자동(inherit)
+                st.markdown(f"""
+                    <div style="margin-bottom: 5px; padding: 8px; border-bottom: 1px solid rgba(128,128,128,0.2);">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-weight: bold; font-size: 0.85rem; color: #29b5e8;">{row['name']}</span>
+                            <span style="color: #888; font-size: 0.7rem;">{row['date']}</span>
+                        </div>
+                        <div style="font-size: 0.9rem; margin-top: 3px; color: inherit;">{row['comment']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c_del:
+                if st.session_state.is_auth and st.session_state.user_name == row['name']:
+                    if st.button("x", key=f"dc_{idx}"):
+                        conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=comments_df.drop(idx))
+                        st.rerun()
 
 # 2. 댓글 출력창 (리스트만 깔끔하게 노출)
 if not comments_df.empty:
@@ -458,6 +474,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
