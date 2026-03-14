@@ -235,31 +235,53 @@ if not st.session_state.is_auth:
                     st.session_state.temp_pw = f"'{new_pw}" # '0' 보존을 위한 접두어
                     st.rerun()
 
-# --- 7. 개인 차트 및 상세 기록 ---
+# --- 7. 개인 데이터 분석 통합 (탭 방식) ---
 if st.session_state.is_auth:
     my_data = df[df['name'] == st.session_state.user_name].copy()
     my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce')
-    
-    if not my_data.empty:
-        chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
-        chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
-        st.write(f"📊 {st.session_state.user_name}님의 최고 기록")
-        
-        base = alt.Chart(chart_df).encode(
-            y=alt.Y('exercise_short:N', sort='-x', title=None),
-            x=alt.X('weight:Q', title="중량 (lbs)")
-        )
-        bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
-        text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
-        st.altair_chart(bars + text, use_container_width=True)
-        
-        with st.expander("📋 상세 기록 조회"):
-            my_exercises = sorted(my_data['exercise'].unique().tolist())
-            selected_history_ex = st.selectbox("조회할 종목", ["전체 보기"] + my_exercises, key="history_filter")
-            history_display_df = my_data if selected_history_ex == "전체 보기" else my_data[my_data['exercise'] == selected_history_ex]
-            history_display_df = history_display_df[['date', 'exercise', 'weight', 'memo']].sort_values(by='date', ascending=False)
-            st.dataframe(history_display_df, hide_index=True, use_container_width=True)
+    my_data['date'] = pd.to_datetime(my_data['date']).dt.date # 날짜 형식 정리
 
+    if not my_data.empty:
+        st.subheader("📊 나의 퍼포먼스 리포트")
+        
+        # 탭으로 깔끔하게 분리
+        tab1, tab2, tab3 = st.tabs(["🏆 최고 기록", "📈 성장률 분석", "📋 전체 히스토리"])
+
+        with tab1:
+            # 최고 기록 차트
+            chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
+            chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
+            
+            base = alt.Chart(chart_df).encode(
+                y=alt.Y('exercise_short:N', sort='-x', title=None),
+                x=alt.X('weight:Q', title="중량 (lbs)")
+            )
+            bars = base.mark_bar(color="#29b5e8", cornerRadiusEnd=5)
+            text = base.mark_text(align='right', dx=-5, color='white', fontWeight='bold').encode(text=alt.Text('weight:Q', format='.0f'))
+            st.altair_chart(bars + text, use_container_width=True)
+
+        with tab2:
+            # 성장률 분석 (최근 기록 vs 최초 기록)
+            st.write("🏃‍♂️ 종목별 성장 지표")
+            unique_ex = my_data['exercise'].unique()
+            cols = st.columns(2)
+            for i, ex in enumerate(unique_ex):
+                ex_data = my_data[my_data['exercise'] == ex].sort_values('date')
+                if len(ex_data) >= 1:
+                    first_w = ex_data.iloc[0]['weight']
+                    last_w = ex_data.iloc[-1]['weight']
+                    diff = last_w - first_w
+                    with cols[i % 2]:
+                        st.metric(label=f"{ex}", value=f"{last_w} lbs", delta=f"{diff} lbs (Total)")
+
+        with tab3:
+            # 상세 기록 테이블
+            selected_history_ex = st.selectbox("종목 필터", ["전체 보기"] + sorted(list(unique_ex)), key="history_filter")
+            history_display_df = my_data if selected_history_ex == "전체 보기" else my_data[my_data['exercise'] == selected_history_ex]
+            st.dataframe(
+                history_display_df[['date', 'exercise', 'weight', 'memo']].sort_values(by='date', ascending=False),
+                hide_index=True, use_container_width=True
+            )
     st.divider()
 
     # --- 8. 기록 업데이트 ---
@@ -313,6 +335,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
