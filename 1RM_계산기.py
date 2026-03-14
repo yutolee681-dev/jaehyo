@@ -359,26 +359,26 @@ if st.session_state.is_auth:
     except:
         ex_index = 0
 
-    # 1. 종목 선택 및 기존 기록 안내
+    # 1. 종목 선택
     save_exercise = st.selectbox("종목 선택", exercise_list, index=ex_index)
     
     # 해당 종목의 내 기존 데이터 찾기
     ex_record = my_data[my_data['exercise'] == save_exercise]
     prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
     
-    # 기존 기록이 있다면 퍼센트 계산기 표시
+    # 2. 훈련 무게 계산기 (5% 단위 세로 리스트)
     if prev_max > 0:
         st.markdown(f"💡 {save_exercise} 기존 최고: **{prev_max} lbs**")
-        with st.expander("📊 오늘의 훈련 무게 계산 (리스트)", expanded=False):
-            # percents 범위를 50%부터 100%까지 5% 단위로 설정
+        with st.expander("📊 훈련 무게 계산 (50% ~ 100%)", expanded=False):
+            # 50%부터 100%까지 5% 단위로 리스트 생성
             percents = list(range(50, 101, 5))
             
-            # 표 형태로 깔끔하게 출력 (모바일에서 가로가 안 깨짐)
-            html_calc = "<div style='background-color: #f9f9f9; padding: 10px; border-radius: 10px; border: 1px solid #eee;'>"
+            # 모바일 가독성을 위해 배경색과 테두리가 있는 리스트 형태 디자인
+            html_calc = "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px; border: 1px solid #eee;'>"
             for p in percents:
                 calc_w = round((prev_max * p / 100) / 2.5) * 2.5
                 html_calc += f"""
-                    <div style='display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid #ddd;'>
+                    <div style='display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd;'>
                         <span style='font-weight: bold; font-size: 1.1rem; color: #555;'>{p}%</span>
                         <span style='font-weight: bold; font-size: 1.1rem; color: #29b5e8;'>{calc_w} <small>lbs</small></span>
                     </div>
@@ -390,27 +390,27 @@ if st.session_state.is_auth:
 
     st.divider()
 
-    # 2. 입력 폼 (st.form을 써서 한 번에 제출)
+    # 3. 입력 폼 (모바일 대응을 위해 세로 배치 강조)
     with st.form(key="record_update_form", clear_on_submit=False):
-        f_col1, f_col2 = st.columns([1, 1])
-        with f_col1:
-            # 기본값을 기존 최고 기록으로 설정해서 입력 편의성 증대
-            new_weight = st.number_input("성공한 중량 (lbs)", value=prev_max if prev_max > 0 else 0.0, step=5.0)
-        with f_col2:
-            new_memo = st.text_input("오늘의 메모", placeholder="예: 컨디션 굿!")
+        st.markdown("#### 🏋️ 새로운 기록 입력")
+        # 기본값을 기존 최고 기록으로 자동 설정
+        new_weight = st.number_input("성공한 중량 (lbs)", value=prev_max if prev_max > 0 else 0.0, step=5.0)
+        new_memo = st.text_input("오늘의 메모 (컨디션 등)", placeholder="예: 컨디션 최상! 가뿐함")
         
-        submit_record = st.form_submit_button("🏋️ 새로운 기록 저장 (누적)", use_container_width=True)
+        # 버튼을 크게 만들어 모바일 터치 편의성 증대
+        submit_record = st.form_submit_button("🔥 새로운 기록 저장하기", use_container_width=True)
 
-    # 3. 데이터 저장 로직
+    # 4. 데이터 저장 로직
     if submit_record:
         if new_weight > 0:
             kst_now = datetime.now() + timedelta(hours=9)
             
-            # 비밀번호 보존 로직
+            # 기존 비밀번호 유지 로직
             user_data = df[df['name'] == st.session_state.user_name]
             last_row = user_data.iloc[-1] if not user_data.empty else None
             final_pw = str(last_row['password']) if last_row is not None else st.session_state.get('temp_pw', '0000')
             
+            # 엑셀/시트에서 0으로 시작하는 비밀번호 보존을 위한 접두어 처리
             if not str(final_pw).startswith("'"):
                 final_pw = f"'{final_pw}"
             
@@ -426,11 +426,11 @@ if st.session_state.is_auth:
             
             updated_df = pd.concat([df, new_record], ignore_index=True)
             
-            # 에러 방지용 SHEET_URL 명시
+            # 구글 시트 업데이트 (SHEET_URL 명시로 에러 방지)
             conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=updated_df)
             
             st.balloons()
-            st.success(f"축하합니다! {save_exercise} {new_weight}lbs 저장 완료!")
+            st.success(f"성공! {save_exercise} {new_weight} lbs 기록이 저장되었습니다.")
             time.sleep(1)
             st.rerun()
         else:
@@ -445,6 +445,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
