@@ -61,6 +61,7 @@ def get_comments():
         return pd.DataFrame(columns=['name', 'comment', 'date'])
 
 df = get_full_data()
+st.write(df)
 comments_df = get_comments()
 
 if 'is_auth' not in st.session_state:
@@ -295,6 +296,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
