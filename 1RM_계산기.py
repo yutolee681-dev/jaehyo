@@ -42,7 +42,6 @@ SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 def get_full_data():
     try:
         raw_df = conn.read(
-            spreadsheet=SHEET_ID,
             worksheet="Sheet1",
             ttl=0
         )
@@ -64,11 +63,9 @@ def get_full_data():
         st.error(f"GSheets read error: {e}")
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
-
 def get_comments():
     try:
         c_df = conn.read(
-            spreadsheet=SHEET_ID,
             worksheet="comments",
             ttl=0
         )
@@ -321,6 +318,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
