@@ -222,32 +222,37 @@ if not st.session_state.is_auth:
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
             
-            # 원래 쓰시던 깔끔한 selectbox 디자인으로 복구
-            # index=0 대신 placeholder를 써서 클릭 전까지 입력을 막습니다.
-            selected_name = st.selectbox(
-                "이름 선택", 
-                ["선택하세요"] + user_list,
-                key="auth_name_restore"
-            )
+            # --- [핵심] st.popover를 써야 키보드가 안 뜹니다 ---
+            with st.popover("👤 이름을 선택하세요", use_container_width=True):
+                # popover 안에서 radio를 쓰면 리스트처럼 보이고 클릭만으로 선택 끝!
+                selected_name = st.radio(
+                    "등록된 사용자 목록",
+                    options=user_list,
+                    index=None,
+                    key="auth_name_popover"
+                )
             
-            if selected_name != "선택하세요":
+            # 이름이 선택되면 아래에 비밀번호 창 노출
+            if selected_name:
+                st.info(f"📍 선택된 이름: **{selected_name}**")
                 pw_input = st.text_input("비밀번호", type="password")
                 
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
-                    # 따옴표 제거 후 비교 로직 유지
                     stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
                     
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
                         st.session_state.user_name = selected_name
                         st.session_state.user_gender = user_rows.iloc[-1]['gender']
+                        st.success(f"✅ {selected_name}님 확인!")
+                        time.sleep(0.5)
                         st.rerun()
                     else:
-                        st.error("비밀번호 불일치")
+                        st.error("비밀번호가 틀렸습니다.")
                         
         else:
-            # 신규 등록 로직 (원래 코드 그대로 복구)
+            # 신규 등록 로직 (기존 유지)
             reg_col1, reg_col2 = st.columns(2)
             new_name = reg_col1.text_input("새 이름", placeholder="예: 재효")
             new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
@@ -427,6 +432,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
