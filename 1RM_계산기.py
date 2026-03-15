@@ -221,22 +221,19 @@ if not st.session_state.is_auth:
         
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
-            
-            # 현재 선택된 이름 라벨
-            button_label = st.session_state.get('sel_name', "이름을 선택하세요 ▼")
-            
-            # popover 선언
-            with st.popover(f"👤 {button_label}", use_container_width=True):
-                # 이름을 클릭하는 순간 세션에 저장하고 st.rerun()으로 팝오버를 강제로 닫습니다.
-                for name in user_list:
-                    if st.button(name, use_container_width=True, key=f"user_{name}"):
-                        st.session_state.sel_name = name
-                        st.rerun() # 이 한 줄이 창을 즉시 닫아주는 핵심입니다!
-
             selected_name = st.session_state.get('sel_name')
-            
-            if selected_name:
-                st.info(f"📍 **{selected_name}** 님, 비밀번호를 입력해주세요.")
+
+            # --- 핵심: 이름이 선택되지 않았을 때만 팝오버를 보여줌 ---
+            if not selected_name:
+                with st.popover("👤 이름을 선택하세요 ▼", use_container_width=True):
+                    for name in user_list:
+                        if st.button(name, use_container_width=True, key=f"user_{name}"):
+                            st.session_state.sel_name = name
+                            st.rerun() # 여기서 리런하면 위 if문 때문에 팝오버가 사라짐
+            else:
+                # 이름이 선택되면 팝오버 대신 선택된 이름만 깔끔하게 표시
+                st.info(f"📍 **{selected_name}** 님이 선택되었습니다.")
+                
                 pw_input = st.text_input("비밀번호", type="password", key="login_pw_final")
                 
                 col_sub, col_can = st.columns([4, 1])
@@ -253,7 +250,8 @@ if not st.session_state.is_auth:
                         else:
                             st.error("비밀번호 불일치")
                 with col_can:
-                    if st.button("다시 선택"):
+                    # 다시 선택 버튼을 누르면 세션을 비우고 리런해서 팝오버를 다시 띄움
+                    if st.button("다시 선택", use_container_width=True):
                         st.session_state.sel_name = None
                         st.rerun()
                         
