@@ -222,43 +222,58 @@ if not st.session_state.is_auth:
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
             
-            # 원래 쓰시던 깔끔한 selectbox 디자인으로 복구
-            # index=0 대신 placeholder를 써서 클릭 전까지 입력을 막습니다.
-            selected_name = st.selectbox(
-                "이름 선택", 
-                ["선택하세요"] + user_list,
-                key="auth_name_restore"
-            )
+            # --- [필살기] Selectbox처럼 보이지만 사실은 버튼인 Popover ---
+            # 버튼 텍스트를 선택된 이름으로 동적 변경해서 selectbox 느낌을 냅니다.
+            button_label = st.session_state.get('sel_name', "이름을 선택하세요 ▼")
             
-            if selected_name != "선택하세요":
-                pw_input = st.text_input("비밀번호", type="password")
+            with st.popover(f"👤 {button_label}", use_container_width=True):
+                # popover 안에서 st.pills를 쓰면 키보드 없이 클릭만 가능하고 아주 깔끔합니다.
+                # 이름이 많아도 자동으로 줄바꿈되어 예쁘게 보입니다.
+                choice = st.pills(
+                    "등록된 이름을 터치하세요", 
+                    user_list, 
+                    selection_mode="single",
+                    key="auth_pills"
+                )
+                if choice:
+                    st.session_state.sel_name = choice
+                    st.rerun()
+
+            selected_name = st.session_state.get('sel_name')
+            
+            # 이름이 선택된 경우에만 비밀번호 입력창 노출
+            if selected_name:
+                st.divider()
+                pw_input = st.text_input("비밀번호", type="password", key="login_pw_final")
                 
-                if st.button("로그인", use_container_width=True):
-                    user_rows = df[df['name'] == selected_name]
-                    # 따옴표 제거 후 비교 로직 유지
-                    stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
-                    
-                    if pw_input.strip() == stored_pw:
-                        st.session_state.is_auth = True
-                        st.session_state.user_name = selected_name
-                        st.session_state.user_gender = user_rows.iloc[-1]['gender']
+                col_sub, col_can = st.columns([4, 1])
+                with col_sub:
+                    if st.button("로그인", use_container_width=True):
+                        user_rows = df[df['name'] == selected_name]
+                        stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
+                        
+                        if pw_input.strip() == stored_pw:
+                            st.session_state.is_auth = True
+                            st.session_state.user_name = selected_name
+                            st.session_state.user_gender = user_rows.iloc[-1]['gender']
+                            st.rerun()
+                        else:
+                            st.error("비밀번호 불일치")
+                with col_can:
+                    if st.button("취소"):
+                        st.session_state.sel_name = None
                         st.rerun()
-                    else:
-                        st.error("비밀번호 불일치")
                         
         else:
-            # 신규 등록 로직 (원래 코드 그대로 복구)
+            # 신규 등록 로직 (기존 유지)
             reg_col1, reg_col2 = st.columns(2)
-            new_name = reg_col1.text_input("새 이름", placeholder="예: 재효")
+            new_name = reg_col1.text_input("새 이름")
             new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
             new_pw = st.text_input("비밀번호 설정", type="password")
-            
             if st.button("등록 및 로그인", use_container_width=True):
                 if new_name and new_pw:
-                    st.session_state.is_auth = True
-                    st.session_state.user_name = new_name
-                    st.session_state.user_gender = new_gender
-                    st.session_state.temp_pw = f"'{new_pw}" 
+                    st.session_state.is_auth, st.session_state.user_name = True, new_name
+                    st.session_state.user_gender, st.session_state.temp_pw = new_gender, f"'{new_pw}" 
                     st.rerun()
 
 # --- 7. 개인 데이터 분석 통합 (탭 방식) ---
