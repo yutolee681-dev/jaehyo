@@ -222,51 +222,43 @@ if not st.session_state.is_auth:
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
             
-            st.write("👇 **본인 이름을 터치하세요**")
+            # 원래 쓰시던 깔끔한 selectbox 디자인으로 복구
+            # index=0 대신 placeholder를 써서 클릭 전까지 입력을 막습니다.
+            selected_name = st.selectbox(
+                "이름 선택", 
+                ["선택하세요"] + user_list,
+                key="auth_name_restore"
+            )
             
-            # 버튼들을 가로/세로 적절히 배치 (모바일 대응)
-            # 이름이 너무 많으면 공간을 위해 3개씩 끊어서 배치합니다.
-            cols = st.columns(3) 
-            selected_name = st.session_state.get('selected_auth_name', None)
-            
-            for i, name in enumerate(user_list):
-                with cols[i % 3]:
-                    if st.button(name, use_container_width=True, key=f"user_btn_{name}"):
-                        st.session_state.selected_auth_name = name
-                        st.rerun() # 이름을 클릭하면 화면을 다시 그려서 비밀번호창 노출
-            
-            # 이름이 클릭된 상태라면 비밀번호 입력창을 띄움
-            if selected_name:
-                st.divider()
-                st.info(f"📍 선택된 이름: **{selected_name}**")
-                pw_input = st.text_input("비밀번호", type="password", key="final_pw_input")
+            if selected_name != "선택하세요":
+                pw_input = st.text_input("비밀번호", type="password")
                 
-                col_login, col_cancel = st.columns([3, 1])
-                with col_login:
-                    if st.button("로그인 실행", use_container_width=True):
-                        user_rows = df[df['name'] == selected_name]
-                        stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
-                        if pw_input.strip() == stored_pw:
-                            st.session_state.is_auth = True
-                            st.session_state.user_name = selected_name
-                            st.session_state.user_gender = user_rows.iloc[-1]['gender']
-                            st.rerun()
-                        else:
-                            st.error("비밀번호 불일치")
-                with col_cancel:
-                    if st.button("취소"):
-                        st.session_state.selected_auth_name = None
+                if st.button("로그인", use_container_width=True):
+                    user_rows = df[df['name'] == selected_name]
+                    # 따옴표 제거 후 비교 로직 유지
+                    stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
+                    
+                    if pw_input.strip() == stored_pw:
+                        st.session_state.is_auth = True
+                        st.session_state.user_name = selected_name
+                        st.session_state.user_gender = user_rows.iloc[-1]['gender']
                         st.rerun()
+                    else:
+                        st.error("비밀번호 불일치")
+                        
         else:
-            # 신규 등록은 이름을 쳐야 하므로 기존 유지
+            # 신규 등록 로직 (원래 코드 그대로 복구)
             reg_col1, reg_col2 = st.columns(2)
-            new_name = reg_col1.text_input("새 이름")
+            new_name = reg_col1.text_input("새 이름", placeholder="예: 재효")
             new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
             new_pw = st.text_input("비밀번호 설정", type="password")
-            if st.button("등록 및 로그인"):
+            
+            if st.button("등록 및 로그인", use_container_width=True):
                 if new_name and new_pw:
-                    st.session_state.is_auth, st.session_state.user_name = True, new_name
-                    st.session_state.user_gender, st.session_state.temp_pw = new_gender, f"'{new_pw}"
+                    st.session_state.is_auth = True
+                    st.session_state.user_name = new_name
+                    st.session_state.user_gender = new_gender
+                    st.session_state.temp_pw = f"'{new_pw}" 
                     st.rerun()
 
 # --- 7. 개인 데이터 분석 통합 (탭 방식) ---
@@ -435,6 +427,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
