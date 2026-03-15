@@ -222,29 +222,29 @@ if not st.session_state.is_auth:
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
             
-            # 1. 키보드 팝업을 방지하는 index=None 설정 버전
-            selected_name = st.selectbox(
-                "이름 선택", 
-                user_list, 
-                index=None, 
-                placeholder="이름을 선택하세요",
-                key="auth_name_select"
+            # selectbox 대신 radio를 사용하여 키보드 팝업을 원천 차단합니다.
+            # 리스트가 너무 길면 'label_visibility="collapsed"' 등을 고려할 수 있습니다.
+            selected_name = st.radio(
+                "본인 이름을 선택하세요", 
+                options=user_list,
+                index=None,
+                key="auth_name_radio"
             )
             
-            # 2. 이름이 선택된 경우에만 비밀번호 입력창 노출
+            # 이름이 선택된 경우에만 비밀번호 입력창 노출
             if selected_name:
+                st.info(f"📍 선택된 이름: **{selected_name}**")
                 pw_input = st.text_input("비밀번호", type="password")
                 
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
-                    # 따옴표 제거 후 비교
                     stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
                     
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
                         st.session_state.user_name = selected_name
                         st.session_state.user_gender = user_rows.iloc[-1]['gender']
-                        st.success(f"✅ {selected_name}님 확인되었습니다!")
+                        st.success(f"✅ {selected_name}님 로그인 완료!")
                         time.sleep(0.5)
                         st.rerun()
                     else:
@@ -431,6 +431,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
