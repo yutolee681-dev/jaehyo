@@ -222,28 +222,21 @@ if not st.session_state.is_auth:
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
             
-            # --- [필살기] Selectbox처럼 보이지만 사실은 버튼인 Popover ---
-            # 버튼 텍스트를 선택된 이름으로 동적 변경해서 selectbox 느낌을 냅니다.
+            # 현재 선택된 이름 라벨
             button_label = st.session_state.get('sel_name', "이름을 선택하세요 ▼")
             
+            # popover 선언
             with st.popover(f"👤 {button_label}", use_container_width=True):
-                # popover 안에서 st.pills를 쓰면 키보드 없이 클릭만 가능하고 아주 깔끔합니다.
-                # 이름이 많아도 자동으로 줄바꿈되어 예쁘게 보입니다.
-                choice = st.pills(
-                    "등록된 이름을 터치하세요", 
-                    user_list, 
-                    selection_mode="single",
-                    key="auth_pills"
-                )
-                if choice:
-                    st.session_state.sel_name = choice
-                    st.rerun()
+                # 이름을 클릭하는 순간 세션에 저장하고 st.rerun()으로 팝오버를 강제로 닫습니다.
+                for name in user_list:
+                    if st.button(name, use_container_width=True, key=f"user_{name}"):
+                        st.session_state.sel_name = name
+                        st.rerun() # 이 한 줄이 창을 즉시 닫아주는 핵심입니다!
 
             selected_name = st.session_state.get('sel_name')
             
-            # 이름이 선택된 경우에만 비밀번호 입력창 노출
             if selected_name:
-                st.divider()
+                st.info(f"📍 **{selected_name}** 님, 비밀번호를 입력해주세요.")
                 pw_input = st.text_input("비밀번호", type="password", key="login_pw_final")
                 
                 col_sub, col_can = st.columns([4, 1])
@@ -260,7 +253,7 @@ if not st.session_state.is_auth:
                         else:
                             st.error("비밀번호 불일치")
                 with col_can:
-                    if st.button("취소"):
+                    if st.button("다시 선택"):
                         st.session_state.sel_name = None
                         st.rerun()
                         
