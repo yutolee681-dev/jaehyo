@@ -221,27 +221,35 @@ if not st.session_state.is_auth:
         
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
-            selected_name = st.session_state.get('sel_name')
-
-            # --- 핵심: 이름이 선택되지 않았을 때만 팝오버를 보여줌 ---
-            if not selected_name:
-                with st.popover("👤 이름을 선택하세요 ▼", use_container_width=True):
-                    for name in user_list:
+            
+            # 세션에 저장된 이름이 없으면 리스트를 보여줌
+            if not st.session_state.get('sel_name'):
+                st.write("👤 **본인 이름을 선택하세요**")
+                # 버튼을 2열로 배치해서 공간 효율과 속도를 잡음
+                cols = st.columns(2)
+                for i, name in enumerate(user_list):
+                    with cols[i % 2]:
+                        # on_click을 사용하면 rerun 없이 세션에 즉시 반영되어 더 빠릅니다.
                         if st.button(name, use_container_width=True, key=f"user_{name}"):
                             st.session_state.sel_name = name
-                            st.rerun() # 여기서 리런하면 위 if문 때문에 팝오버가 사라짐
+                            st.rerun()
+            
+            # 이름이 선택된 상태라면 (팝오버 없이 바로 노출되어 딜레이 체감 없음)
             else:
-                # 이름이 선택되면 팝오버 대신 선택된 이름만 깔끔하게 표시
-                st.info(f"📍 **{selected_name}** 님이 선택되었습니다.")
+                selected_name = st.session_state.sel_name
+                st.markdown(f"""
+                    <div style="background-color: rgba(41, 181, 232, 0.1); padding: 15px; border-radius: 10px; border: 1px solid #29b5e8; margin-bottom: 20px;">
+                        <span style="font-size: 1.1rem; font-weight: bold; color: #29b5e8;">{selected_name}</span> 님 반갑습니다! 👋
+                    </div>
+                """, unsafe_allow_html=True)
                 
-                pw_input = st.text_input("비밀번호", type="password", key="login_pw_final")
+                pw_input = st.text_input("비밀번호를 입력하세요", type="password", key="login_pw_final")
                 
-                col_sub, col_can = st.columns([4, 1])
-                with col_sub:
-                    if st.button("로그인", use_container_width=True):
+                col_btn1, col_btn2 = st.columns([3, 1])
+                with col_btn1:
+                    if st.button("로그인", use_container_width=True, variant="primary"):
                         user_rows = df[df['name'] == selected_name]
                         stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
-                        
                         if pw_input.strip() == stored_pw:
                             st.session_state.is_auth = True
                             st.session_state.user_name = selected_name
@@ -249,23 +257,10 @@ if not st.session_state.is_auth:
                             st.rerun()
                         else:
                             st.error("비밀번호 불일치")
-                with col_can:
-                    # 다시 선택 버튼을 누르면 세션을 비우고 리런해서 팝오버를 다시 띄움
-                    if st.button("다시 선택", use_container_width=True):
+                with col_btn2:
+                    if st.button("취소", use_container_width=True):
                         st.session_state.sel_name = None
                         st.rerun()
-                        
-        else:
-            # 신규 등록 로직 (기존 유지)
-            reg_col1, reg_col2 = st.columns(2)
-            new_name = reg_col1.text_input("새 이름")
-            new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
-            new_pw = st.text_input("비밀번호 설정", type="password")
-            if st.button("등록 및 로그인", use_container_width=True):
-                if new_name and new_pw:
-                    st.session_state.is_auth, st.session_state.user_name = True, new_name
-                    st.session_state.user_gender, st.session_state.temp_pw = new_gender, f"'{new_pw}" 
-                    st.rerun()
 
 # --- 7. 개인 데이터 분석 통합 (탭 방식) ---
 if st.session_state.is_auth:
