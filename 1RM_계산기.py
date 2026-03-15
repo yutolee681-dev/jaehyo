@@ -222,21 +222,45 @@ if not st.session_state.is_auth:
         if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
             
-            # multiselect를 1개만 선택 가능하게 설정 (디자인은 selectbox와 유사)
-            selected_names = st.multiselect(
-                "이름을 선택하세요", 
-                options=user_list,
-                max_selections=1,
-                placeholder="이름을 터치하세요",
-                key="auth_name_multi"
-            )
+            st.write("👤 **본인 이름을 선택하세요**")
             
-            # 리스트 형태이므로 첫 번째 요소를 가져옴
-            selected_name = selected_names[0] if selected_names else None
-            
+            # --- 가로 스크롤 버튼 (키보드 팝업 0%) ---
+            # CSS로 버튼들을 가로로 나열하고 스크롤 가능하게 만듭니다.
+            st.markdown("""
+                <style>
+                .scroll-container {
+                    display: flex;
+                    overflow-x: auto;
+                    white-space: nowrap;
+                    padding: 10px 0;
+                    gap: 10px;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .scroll-container::-webkit-scrollbar { display: none; }
+                </style>
+            """, unsafe_allow_html=True)
+
+            # 세션에 선택된 이름 저장용
+            if 'sel_name' not in st.session_state:
+                st.session_state.sel_name = None
+
+            # 버튼들을 렌더링 (HTML이 아니라 streamlit 버튼을 쓰되, 레이아웃만 조정)
+            import extra_stylable_components as esc # 만약 없다면 기본 컬럼 방식 사용
+
+            # 이름이 너무 많을 수 있으니 한 줄에 촘촘히 배치
+            cols = st.columns(len(user_list) if len(user_list) > 0 else 1)
+            for i, name in enumerate(user_list):
+                with cols[i]:
+                    # 이름이 길면 잘릴 수 있으니 작은 버튼으로 생성
+                    if st.button(name, key=f"btn_{name}", use_container_width=False):
+                        st.session_state.sel_name = name
+                        st.rerun()
+
+            selected_name = st.session_state.sel_name
+
             if selected_name:
-                st.write(f"📍 **{selected_name}** 님으로 로그인을 시도합니다.")
-                pw_input = st.text_input("비밀번호", type="password")
+                st.success(f"📍 선택됨: **{selected_name}**")
+                pw_input = st.text_input("비밀번호", type="password", key="auth_pw_final")
                 
                 if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
@@ -249,18 +273,21 @@ if not st.session_state.is_auth:
                         st.rerun()
                     else:
                         st.error("비밀번호 불일치")
+                
+                if st.button("다시 선택", type="secondary"):
+                    st.session_state.sel_name = None
+                    st.rerun()
                         
         else:
-            # 신규 등록 (기존 유지)
+            # 신규 등록은 어쩔 수 없이 키보드를 써야 합니다.
             reg_col1, reg_col2 = st.columns(2)
-            new_name = reg_col1.text_input("새 이름", placeholder="예: 재효")
+            new_name = reg_col1.text_input("새 이름")
             new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
             new_pw = st.text_input("비밀번호 설정", type="password")
-            
             if st.button("등록 및 로그인", use_container_width=True):
                 if new_name and new_pw:
                     st.session_state.is_auth, st.session_state.user_name = True, new_name
-                    st.session_state.user_gender, st.session_state.temp_pw = new_gender, f"'{new_pw}" 
+                    st.session_state.user_gender, st.session_state.temp_pw = new_gender, f"'{new_pw}"
                     st.rerun()
 
 # --- 7. 개인 데이터 분석 통합 (탭 방식) ---
@@ -429,6 +456,7 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
+
 
 
 
