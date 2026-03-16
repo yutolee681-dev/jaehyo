@@ -261,11 +261,20 @@ if st.session_state.is_auth:
                     new_w = st.number_input("중량 수정", value=float(row['weight']), key=f"edit_w_{idx}")
                     new_m = st.text_input("메모 수정", value=str(row['memo']), key=f"edit_m_{idx}")
                     b1, b2 = st.columns(2)
-                    if b1.button("💾 저장", key=f"save_{idx}"):
-                        raw_df.at[idx, 'weight'], raw_df.at[idx, 'memo'] = new_w, new_m
-                        if save_to_gsheet(raw_df): st.rerun()
-                    if b2.button("🗑️ 삭제", key=f"del_rec_{idx}"):
-                        if save_to_gsheet(raw_df.drop(idx)): st.rerun()
+                    
+                    if b1.button("💾 저장", key=f"save_{idx}", use_container_width=True):
+                        raw_df.loc[idx, 'weight'] = new_w
+                        raw_df.loc[idx, 'memo'] = new_m
+                        if save_to_gsheet(raw_df):
+                            st.success(f"{row['exercise']} 수정 완료! 🔥") # 알림 추가
+                            time.sleep(1) # 메시지 볼 시간 확보
+                            st.rerun()
+                            
+                    if b2.button("🗑️ 삭제", key=f"del_rec_{idx}", use_container_width=True):
+                        if save_to_gsheet(raw_df.drop(idx)):
+                            st.warning(f"{row['exercise']} 기록 삭제 완료 🗑️") # 알림 추가
+                            time.sleep(1)
+                            st.rerun()
 
     # --- 8. 기록 업데이트 ---
     st.divider()
