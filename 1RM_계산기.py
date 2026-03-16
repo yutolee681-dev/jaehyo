@@ -86,22 +86,59 @@ if not comments_df.empty:
 # --- 6. 사용자 인증 (로그인 전) ---
 if not st.session_state.is_auth:
     st.divider()
+    st.subheader("👤 사용자 인증")
     mode = st.radio("로그인 방식", ["기존", "신규"], horizontal=True)
+    
     if mode == "기존":
-        u_list = sorted(df['name'].unique().tolist()) if not df.empty else []
-        sel_n = st.selectbox("이름", u_list, index=None)
+        # 이름 목록에서 결측치 제거 및 문자열 변환
+        if not df.empty:
+            u_list = sorted(df['name'].dropna().unique().map(str).tolist())
+        else:
+            u_list = []
+            
+        sel_n = st.selectbox("이름", u_list, index=None, placeholder="이름을 선택하세요")
         pw_i = st.text_input("비밀번호", type="password")
+        
         if st.button("로그인", use_container_width=True) and sel_n:
-            correct = str(df[df['name']==sel_n].iloc[-1]['password']).replace("'","").strip()
-            if pw_i == correct:
-                st.session_state.update({'is_auth':True, 'user_name':sel_n, 'user_gender':df[df['name']==sel_n].iloc[-1]['gender']})
-                st.rerun()
+            # 선택한 사용자의 가장 최근 행 가져오기
+            user_rows = df[df['name'].astype(str) == sel_n]
+            if not user_rows.empty:
+                # 비밀번호 비교 로직 강화 (문자열로 강제 변환 및 공백 제거)
+                raw_pw = user_rows.iloc[-1]['password']
+                # float 형태(1234.0)인 경우 정수로 먼저 변환 후 문자열로
+                if isinstance(raw_pw, float):
+                    correct = str(int(raw_pw))
+                else:
+                    correct = str(raw_pw).replace("'", "").strip()
+                
+                if pw_i.strip() == correct:
+                    st.session_state.update({
+                        'is_auth': True, 
+                        'user_name': sel_n, 
+                        'user_gender': user_rows.iloc[-1]['gender']
+                    })
+                    st.success(f"{sel_n}님, 환영합니다! 🔥")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("비밀번호가 틀렸습니다. 다시 확인해 주세요.")
+            else:
+                st.error("해당 이름의 사용자를 찾을 수 없습니다.")
+    
     else:
+        # 신규 등록 로직은 기존과 동일하되 비밀번호에 ' 추가 (시트에서 문자로 인식되게)
         c1, c2 = st.columns(2)
-        new_n, new_p = c1.text_input("이름"), st.text_input("비밀번호", type="password")
+        new_n = c1.text_input("이름")
+        new_p = st.text_input("비밀번호", type="password")
         new_g = c2.radio("성별", ["남성", "여성"])
         if st.button("등록", use_container_width=True) and new_n and new_p:
-            st.session_state.update({'is_auth':True, 'user_name':new_n, 'user_gender':new_g, 'temp_pw':f"'{new_p}"})
+            # 즉시 세션 부여
+            st.session_state.update({
+                'is_auth': True, 
+                'user_name': new_n, 
+                'user_gender': new_g, 
+                'temp_pw': f"'{new_p}" # 시트 저장 시 문자로 강제 지정
+            })
             st.rerun()
 
 # --- 7. 개인 분석 및 기록 관리 (로그인 후) ---
