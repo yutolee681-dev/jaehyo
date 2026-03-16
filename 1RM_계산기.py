@@ -33,14 +33,11 @@ rename_map = {
 }
 
 # 2. 구글 시트 연결
-# 2. 구글 시트 연결 (수정 버전)
-# 뒤에 붙은 /edit... 부분을 완전히 제거한 순수 ID 주소입니다.
+conn = st.connection("gsheets", type=GSheetsConnection)
+# 변경 후
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except Exception as e:
-    st.error(f"연결 객체 생성 실패: {e}")
+SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
 def get_full_data():
     try:
@@ -48,8 +45,6 @@ def get_full_data():
             worksheet="Sheet1",
             ttl=0
         )
-
-        st.write("DEBUG Sheet1:", raw_df)
 
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
@@ -73,8 +68,6 @@ def get_comments():
             ttl=0
         )
 
-        st.write("DEBUG comments:", c_df)
-
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
 
@@ -84,8 +77,7 @@ def get_comments():
         st.error(f"GSheets comment error: {e}")
         return pd.DataFrame(columns=['name','comment','date'])
 
-        
-# 함수 호출
+
 df = get_full_data()
 comments_df = get_comments()
 
@@ -191,7 +183,7 @@ if st.session_state.is_auth:
             kst_now = datetime.now() + timedelta(hours=9)
             new_c_row = pd.DataFrame([{"name": st.session_state.user_name, "comment": new_comment, "date": kst_now.strftime("%m/%d %H:%M")}])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
-            conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=updated_comments)
+            conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=all_comments)
             st.rerun()
 else:
     st.info("로그인하면 응원 댓글을 남길 수 있습니다.")
@@ -441,38 +433,5 @@ with st.expander("🛠️ Admin"):
     admin_pw = st.text_input("Key", type="password")
     if admin_pw == "5207":
         st.dataframe(df)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
