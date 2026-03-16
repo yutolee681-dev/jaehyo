@@ -27,18 +27,21 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        # 끝에 &cachebust=... 를 붙여서 구글이 강제로 새 데이터를 주게 만듭니다
-        timestamp = int(time.time())
-        csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Sheet1&cb={timestamp}"
-        raw_df = pd.read_csv(csv_url)
+        # [핵심] 캐시 파괴를 위한 타임스탬프 추가
+        import time
+        cb = int(time.time())
+        csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Sheet1&cb={cb}"
         
-        if raw_df is None or raw_df.empty:
+        # 데이터를 읽어올 때 모든 값을 문자열로 읽고, 빈 값(NaN)을 빈 글자("")로 바꿉니다.
+        raw_df = pd.read_csv(csv_url).fillna("")
+        
+        if raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
-        # 컬럼명 소문자 변환 및 공백 제거 (혹시 모를 에러 방지)
+        # 컬럼명 정리
         raw_df.columns = [c.lower().strip() for c in raw_df.columns]
         return raw_df
-    except Exception as e:
+    except Exception:
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
 def get_comments():
