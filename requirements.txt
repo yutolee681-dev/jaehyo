@@ -2,3 +2,5 @@ streamlit
 st-gsheets-connection
 pandas
 altair
+gspread
+google-auth
