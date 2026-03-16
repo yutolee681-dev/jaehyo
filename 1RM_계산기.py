@@ -36,7 +36,6 @@ rename_map = {
     "Overhead Squat": "OHS"
 }
 
-# --- 2. 데이터 로드 및 저장 함수 (KeyError 및 저장 에러 방지) ---
 # --- 2. 데이터 로드 및 저장 함수 (핵심) ---
 SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
@@ -50,10 +49,9 @@ def get_data_via_csv(worksheet_name="Sheet1"):
         # 컬럼명 표준화
         data.columns = [str(c).lower().strip() for c in data.columns]
         
-        # [보강] 만약 시트가 비어있어서 'name' 컬럼이 없으면 빈 틀을 반환해서 에러 방지
-        required_cols = ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo']
-        if 'name' not in data.columns or data.empty:
-            return pd.DataFrame(columns=required_cols)
+        # 데이터가 비어있을 경우 KeyError 방지를 위한 기본 틀 반환
+        if data.empty or 'name' not in data.columns:
+            return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
         
         if 'password' in data.columns:
             def clean_pw(val):
@@ -63,7 +61,7 @@ def get_data_via_csv(worksheet_name="Sheet1"):
             data['password'] = data['password'].apply(clean_pw)
         return data
     except Exception as e:
-        # 로드 실패 시에도 앱이 죽지 않도록 빈 데이터프레임 반환
+        # 에러 발생 시 앱이 중단되지 않도록 빈 구조 반환
         return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
 
 # [중요] 에러 없는 직접 저장 함수
@@ -91,19 +89,12 @@ def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
         client = gspread.authorize(credentials)
         
         sh = client.open_by_key(SHEET_ID)
-        
-        # 워크시트 존재 여부 확인 및 가져오기
-        try:
-            worksheet = sh.worksheet(worksheet_name)
-        except gspread.WorksheetNotFound:
-            worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
+        worksheet = sh.worksheet(worksheet_name)
         
         dataframe = dataframe.fillna("")
-        # 헤더 포함 데이터 정리
         data_to_save = [dataframe.columns.values.tolist()] + dataframe.astype(str).values.tolist()
         
         worksheet.clear()
-        # [수정] 최신 gspread 버전 호환을 위해 values와 range_name 명시
         worksheet.update(values=data_to_save, range_name='A1')
         return True
     except Exception as e:
