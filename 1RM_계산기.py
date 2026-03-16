@@ -233,17 +233,17 @@ if not st.session_state.is_auth:
         if selected_name != "선택하세요":
             pw_input = st.text_input("비밀번호", type="password")
             if st.button("로그인", use_container_width=True):
-                # 1. 재효님 로그인 체크
+                # 1. 재효님 전용 관리자 로그인
                 if selected_name == "재효" and pw_input.strip() == "5207":
                     st.session_state.update({
                         "is_auth": True, 
                         "user_name": "재효", 
                         "user_gender": "남성",
-                        "password": "5207"  # 로그인한 비번 기억
+                        "password": "5207"
                     })
                     st.rerun()
                 
-                # 2. 일반 사용자 로그인 체크
+                # 2. 일반 사용자 로그인 체크 (시트의 마지막 기록 비번 기준)
                 user_rows = df[df['name'].astype(str).str.strip() == selected_name]
                 if not user_rows.empty:
                     clean_sheet_pw = str(user_rows.iloc[-1]['password']).strip()
@@ -252,50 +252,51 @@ if not st.session_state.is_auth:
                             "is_auth": True, 
                             "user_name": selected_name, 
                             "user_gender": user_rows.iloc[-1]['gender'],
-                            "password": pw_input.strip()  # 로그인한 비번 기억
+                            "password": pw_input.strip()
                         })
                         st.rerun()
                     else:
-                        st.error("비밀번호 불일치")
-    
-   else:
-    # 3. 신규 사용자 등록
-    reg_col1, reg_col2 = st.columns(2)
-    new_name = reg_col1.text_input("새 이름")
-    new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
-    new_pw = st.text_input("비밀번호 설정", type="password")
-    
-    if st.button("등록 및 로그인", use_container_width=True):
-        if new_name and new_pw:
-            # [핵심] 시트에 저장할 새로운 행(Row) 만들기
-            # 가입 시에는 운동 기록이 없으므로 종목/중량 등은 비워서 첫 등록을 합니다.
-            new_user_row = pd.DataFrame([{
-                "name": new_name.strip(),
-                "exercise": "Registration", # 가입 확인용 더미 데이터
-                "weight": 0,
-                "date": (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d"),
-                "password": f"'{new_pw.strip()}", # 비번에 ' 붙여서 문자열 강제
-                "gender": new_gender,
-                "memo": "신규 가입"
-            }])
-            
-            # 기존 df에 합치기
-            updated_df = pd.concat([df, new_user_row], ignore_index=True)
-            
-            # 🔥 [중요] 실제로 구글 시트에 저장 명령!
-            if save_to_gsheet(updated_df, "Sheet1"):
-                # 저장이 성공하면 그때 세션에 로그인 정보를 넣습니다.
-                st.session_state.update({
-                    "is_auth": True, 
-                    "user_name": new_name.strip(), 
-                    "user_gender": new_gender, 
-                    "password": new_pw.strip()
-                })
-                st.success(f"{new_name}님, 가입 및 로그인이 완료되었습니다! 🔥")
-                time.sleep(1)
-                st.rerun()
-        else:
-            st.warning("이름과 비밀번호를 모두 입력해주세요.")
+                        st.error("비밀번호가 일치하지 않습니다.")
+    else:
+        # 3. 신규 사용자 등록 (DB 저장 로직 포함)
+        reg_col1, reg_col2 = st.columns(2)
+        new_name = reg_col1.text_input("새 이름", placeholder="성함 입력")
+        new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
+        new_pw = st.text_input("비밀번호 설정", type="password", placeholder="숫자 4자리 등")
+        
+        if st.button("등록 및 로그인", use_container_width=True):
+            if new_name and new_pw:
+                # 시트에 중복 이름이 있는지 확인
+                if not df.empty and new_name.strip() in df['name'].values:
+                    st.warning("이미 존재하는 이름입니다. 기존 사용자로 로그인해주세요.")
+                else:
+                    # 가입 정보를 시트에 기록 (최초 데이터 생성)
+                    new_user_data = pd.DataFrame([{
+                        "name": new_name.strip(),
+                        "exercise": "Registration",  # 가입용 더미 데이터
+                        "weight": 0,
+                        "date": (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d"),
+                        "password": f"'{new_pw.strip()}", # 시트 숫지 변환 방지
+                        "gender": new_gender,
+                        "memo": "신규 가입 환영합니다! 🔥"
+                    }])
+                    
+                    # 기존 데이터에 합치기
+                    updated_df = pd.concat([df, new_user_data], ignore_index=True)
+                    
+                    # 구글 시트에 즉시 전송
+                    if save_to_gsheet(updated_df, "Sheet1"):
+                        st.session_state.update({
+                            "is_auth": True, 
+                            "user_name": new_name.strip(), 
+                            "user_gender": new_gender,
+                            "password": new_pw.strip()
+                        })
+                        st.success(f"🎉 {new_name}님, 가입을 축하합니다! 이제 기록을 시작하세요.")
+                        time.sleep(1)
+                        st.rerun()
+            else:
+                st.error("이름과 비밀번호를 모두 입력해주셔야 등록이 가능합니다.")
 
 # --- 7. 개인 데이터 분석 통합 ---
 if st.session_state.is_auth:
