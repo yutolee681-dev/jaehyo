@@ -150,7 +150,7 @@ st.subheader("💬 실시간 응원 한마디")
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         c1, c2 = st.columns([4, 1])
-        new_c = c1.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="오늘 컨디션 최고! 🔥")
+        new_c = c1.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="재효님 클린 ㅎㄷㄷ! 🔥")
         if c2.form_submit_button("등록") and new_c:
             kst = (datetime.now() + timedelta(hours=9)).strftime("%m/%d %H:%M")
             new_row = pd.DataFrame([{"name": st.session_state.user_name, "comment": new_c, "date": kst}])
