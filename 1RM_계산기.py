@@ -222,27 +222,38 @@ if st.session_state.is_auth:
             # 두 레이어를 합쳐서 표시
             st.altair_chart(bars + text, use_container_width=True)
 
-            # --- 1RM 비율별 중량 표 (50%부터 시작) ---
+            # --- 스타일리시 1RM 비율표 (모바일 최적화) ---
             st.divider()
-            st.markdown("### 📊 1RM 비율표 (lbs)")
+            st.markdown("### 📊 Weight Percentage Chart")
             
             calc_ex = st.selectbox("종목 선택", best['exercise'].unique(), key="percent_box")
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
             
-            # 50%부터 100%까지 5% 단위로 생성 (range 수정)
-            per_list = []
-            for p in range(50, 105, 5): # -5가 아니라 5로 써야 숫자가 생깁니다!
-                per_list.append({
-                    "비율": f"{p}%",
-                    "중량": f"{round(max_w * (p/100), 1)}"
-                })
+            # 50%부터 100%까지 데이터 생성
+            per_rows = ""
+            for p in range(50, 105, 5):
+                weight = round(max_w * (p/100), 1)
+                
+                # 구간별 색상 지정 (웜업: 회색, 빌드업: 파랑, 고중량: 빨강)
+                if p < 70: color = "#808080"  # Warm-up
+                elif p < 90: color = "#29b5e8" # Build-up
+                else: color = "#ff4b4b"       # Heavy/PR
+                
+                per_rows += f"""
+                <div style="display: flex; justify-content: space-between; align-items: center; 
+                            padding: 10px 15px; margin-bottom: 5px; border-radius: 8px; 
+                            background-color: #1e1e1e; border-left: 5px solid {color};">
+                    <span style="color: {color}; font-weight: bold; font-size: 1.1rem;">{p}%</span>
+                    <span style="color: white; font-size: 1.2rem; font-weight: 800;">{weight} <small style="font-size: 0.7rem; color: #666;">lbs</small></span>
+                </div>
+                """
             
-            # 데이터 생성 확인 후 인덱스 설정
-            if per_list:
-                per_df = pd.DataFrame(per_list).set_index("비율")
-                st.dataframe(per_df, use_container_width=True)
-            else:
-                st.warning("데이터를 불러올 수 없습니다.")
+            # 스타일이 적용된 HTML 출력
+            st.markdown(f"""
+            <div style="background-color: #0e1117; padding: 10px; border-radius: 10px;">
+                {per_rows}
+            </div>
+            """, unsafe_allow_html=True)
     
     with tab2:
         if not my_data.empty:
