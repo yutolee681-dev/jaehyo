@@ -36,7 +36,9 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        raw_df = conn.read(worksheet="Sheet1", ttl=0)
+        # worksheet 뿐만 아니라 spreadsheet URL을 반드시 넣어줘야 합니다.
+        raw_df = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=0)
+        
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
         
@@ -51,7 +53,9 @@ def get_full_data():
 
 def get_comments():
     try:
-        c_df = conn.read(worksheet="comments", ttl=0)
+        # 여기도 동일하게 spreadsheet 인자를 추가합니다.
+        c_df = conn.read(spreadsheet=SHEET_URL, worksheet="comments", ttl=0)
+        
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
         return c_df
