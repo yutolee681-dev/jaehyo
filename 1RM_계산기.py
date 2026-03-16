@@ -62,7 +62,7 @@ def get_data_via_csv(worksheet_name="Sheet1"):
 def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
     try:
         # Secrets에서 [gsheets] 정보를 바로 가져옵니다.
-        creds_info = st.secrets["connections"]["gsheets"]
+        creds_info = st.secrets["gsheets"]
 
         # gspread 인증용 데이터 정리
         credentials_dict = {
