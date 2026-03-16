@@ -122,47 +122,55 @@ if not comments_df.empty:
 
 st.divider()
 
-# --- 6. 사용자 인증 (로그인 에러 방지 로직 적용) ---
+# --- 6. 사용자 인증 (로그인 에러 및 불일치 해결 버전) ---
 if not st.session_state.is_auth:
     st.subheader("👤 사용자 인증")
     input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
     
     if input_mode == "기존 사용자":
-        user_list = sorted(df['name'].dropna().unique().astype(str).tolist()) if not df.empty and 'name' in df.columns else []
+        # 이름 목록 가져오기 (공백 제거 및 문자열화)
+        user_list = sorted(df['name'].dropna().unique().astype(str).str.strip().tolist()) if not df.empty and 'name' in df.columns else []
         selected_name = st.selectbox("이름 선택", options=user_list, index=None, placeholder="이름을 선택하세요")
         
         if selected_name:
             pw_input = st.text_input("비밀번호", type="password")
             if st.button("로그인", use_container_width=True):
-                user_rows = df[df['name'].astype(str) == selected_name]
+                # 이름 비교 시 양쪽 공백 제거 후 비교
+                user_rows = df[df['name'].astype(str).str.strip() == selected_name.strip()]
+                
                 if not user_rows.empty:
-                    # --- 141라인 근처: 비밀번호 검증 로직 수정 ---
-                    raw_pw = user_rows.iloc[-1]['password']
+                    raw_pw = str(user_rows.iloc[-1]['password']).strip()
                     
-                    # [수정] 어떤 기상천외한 데이터가 들어와도 에러 안 나는 로직
-                    if pd.isna(raw_pw): # 시트가 비어있는 경우
-                        correct = ""
-                    try:
-                        # 숫자인 경우(1234, 1234.0 등) 소수점 떼고 문자로 변환
-                        correct = str(int(float(raw_pw)))
-                    except (ValueError, TypeError):
-                        # 문자인 경우('abc', '1234!') 그대로 문자열 처리
-                        correct = str(raw_pw).replace("'", "").strip()
+                    # [핵심] 시트의 값을 비교 가능한 '깨끗한 문자열'로 변환
+                    # 1. 따옴표 제거
+                    clean_pw = raw_pw.replace("'", "")
+                    # 2. .0 소수점 제거 (숫자로 저장된 경우 대비)
+                    if clean_pw.endswith('.0'):
+                        clean_pw = clean_pw[:-2]
                     
-                    if pw_input.strip() == correct:
-                        st.session_state.update({'is_auth': True, 'user_name': selected_name, 'user_gender': user_rows.iloc[-1]['gender']})
-                        st.success("환영합니다!")
+                    # 입력값과 최종 비교 (양쪽 공백 제거)
+                    if pw_input.strip() == clean_pw:
+                        st.session_state.update({
+                            'is_auth': True, 
+                            'user_name': selected_name, 
+                            'user_gender': user_rows.iloc[-1]['gender']
+                        })
+                        st.success("환영합니다! 🔥")
                         time.sleep(0.5); st.rerun()
                     else:
-                        st.error("비밀번호가 틀렸습니다.")
+                        st.error(f"비밀번호가 틀렸습니다.")
+                else:
+                    st.error("사용자 정보를 찾을 수 없습니다.")
     else:
+        # 신규 등록 로직 (기본 동일)
         reg_col1, reg_col2 = st.columns(2)
         new_name = reg_col1.text_input("새 이름")
         new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
         new_pw = st.text_input("비밀번호 설정", type="password")
         if st.button("등록 및 로그인", use_container_width=True) and new_name and new_pw:
-            st.session_state.update({'is_auth': True, 'user_name': new_name, 'user_gender': new_gender, 'temp_pw': f"'{new_pw}"})
+            st.session_state.update({'is_auth': True, 'user_name': new_name.strip(), 'user_gender': new_gender, 'temp_pw': f"'{new_pw}"})
             st.rerun()
+
 
 # --- 7 & 8. 개인 분석 및 데이터 입력 (로그인 후) ---
 if st.session_state.is_auth:
