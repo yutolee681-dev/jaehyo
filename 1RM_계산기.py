@@ -222,38 +222,23 @@ if st.session_state.is_auth:
             # 두 레이어를 합쳐서 표시
             st.altair_chart(bars + text, use_container_width=True)
 
-            # --- 스타일리시 1RM 비율표 (모바일 최적화) ---
+            # --- 깔끔하고 안전한 1RM 비율표 ---
             st.divider()
-            st.markdown("### 📊 Weight Percentage Chart")
+            st.markdown("### 📊 1RM 비율표 (lbs)")
             
             calc_ex = st.selectbox("종목 선택", best['exercise'].unique(), key="percent_box")
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
             
-            # 50%부터 100%까지 데이터 생성
-            per_rows = ""
+            # 데이터 생성
+            per_data = []
             for p in range(50, 105, 5):
-                weight = round(max_w * (p/100), 1)
-                
-                # 구간별 색상 지정 (웜업: 회색, 빌드업: 파랑, 고중량: 빨강)
-                if p < 70: color = "#808080"  # Warm-up
-                elif p < 90: color = "#29b5e8" # Build-up
-                else: color = "#ff4b4b"       # Heavy/PR
-                
-                per_rows += f"""
-                <div style="display: flex; justify-content: space-between; align-items: center; 
-                            padding: 10px 15px; margin-bottom: 5px; border-radius: 8px; 
-                            background-color: #1e1e1e; border-left: 5px solid {color};">
-                    <span style="color: {color}; font-weight: bold; font-size: 1.1rem;">{p}%</span>
-                    <span style="color: white; font-size: 1.2rem; font-weight: 800;">{weight} <small style="font-size: 0.7rem; color: #666;">lbs</small></span>
-                </div>
-                """
+                per_data.append({
+                    "비율": f"{p}%",
+                    "중량": f"{round(max_w * (p/100), 1)} lbs"
+                })
             
-            # 스타일이 적용된 HTML 출력
-            st.markdown(f"""
-            <div style="background-color: #0e1117; padding: 10px; border-radius: 10px;">
-                {per_rows}
-            </div>
-            """, unsafe_allow_html=True)
+            # 스타일은 Streamlit 기본 표 기능을 쓰되, 가독성만 챙겼습니다.
+            st.table(pd.DataFrame(per_data).set_index("비율"))
     
     with tab2:
         if not my_data.empty:
