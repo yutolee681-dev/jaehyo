@@ -34,14 +34,15 @@ rename_map = {
 
 # 2. 구글 시트 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
-# 변경 후
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
-SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
+# 시트 URL 설정 (상수로 명확히 정의)
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
 def get_full_data():
     try:
+        # spreadsheet 인자를 추가하여 어떤 파일인지 명시합니다.
         raw_df = conn.read(
+            spreadsheet=SHEET_URL,
             worksheet="Sheet1",
             ttl=0
         )
@@ -50,7 +51,6 @@ def get_full_data():
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
-
         for col, default in required_cols.items():
             if col not in raw_df.columns:
                 raw_df[col] = default
@@ -58,12 +58,14 @@ def get_full_data():
         return raw_df
 
     except Exception as e:
-        st.error(f"GSheets read error: {e}")
+        st.error(f"GSheets 데이터 로드 에러: {e}")
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
 def get_comments():
     try:
+        # 여기도 spreadsheet 인자를 추가합니다.
         c_df = conn.read(
+            spreadsheet=SHEET_URL,
             worksheet="comments",
             ttl=0
         )
@@ -74,9 +76,8 @@ def get_comments():
         return c_df
 
     except Exception as e:
-        st.error(f"GSheets comment error: {e}")
+        st.error(f"GSheets 댓글 로드 에러: {e}")
         return pd.DataFrame(columns=['name','comment','date'])
-
 
 df = get_full_data()
 comments_df = get_comments()
