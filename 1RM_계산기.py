@@ -189,10 +189,27 @@ if st.session_state.is_auth:
 
 if not comments_df.empty:
     with st.expander("📂 최근 응원 메시지", expanded=True):
+        # 최신순으로 10개만 가져오기
         display_comments = comments_df.sort_index(ascending=False).head(10)
+        
         for idx, row in display_comments.iterrows():
-            st.markdown(f"**{row['name']}** ({row['date']}): {row['comment']}")
-st.divider()
+            # 댓글 내용과 삭제 버튼을 나란히 배치 (비율 5:1)
+            c_col, d_col = st.columns([5, 1])
+            
+            with c_col:
+                st.markdown(f"**{row['name']}** ({row['date']}): {row['comment']}")
+            
+            # [핵심] 로그인한 본인의 댓글일 때만 삭제 버튼 표시
+            if st.session_state.is_auth and row['name'] == st.session_state.user_name:
+                with d_col:
+                    # 버튼의 key를 인덱스(idx)를 이용해 고유하게 설정
+                    if st.button("🗑️", key=f"del_msg_{idx}"):
+                        # 전체 comments_df에서 해당 인덱스 삭제
+                        new_comments_df = comments_df.drop(idx)
+                        if save_to_gsheet(new_comments_df, "comments"):
+                            st.warning("삭제됨")
+                            time.sleep(0.5)
+                            st.rerun()
 
 # --- 6. 사용자 인증 ---
 if not st.session_state.is_auth:
