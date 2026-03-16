@@ -33,53 +33,50 @@ rename_map = {
 }
 
 # 2. 구글 시트 연결
-conn = st.connection("gsheets", type=GSheetsConnection)
-# 변경 후
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
-SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error(f"연결 객체 생성 실패: {e}")
 
 def get_full_data():
     try:
+        # worksheet 이름이 정확히 "Sheet1"인지 확인 (대소문자 구분)
         raw_df = conn.read(
             spreadsheet=SHEET_URL,
             worksheet="Sheet1",
             ttl=0
         )
-
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
-
+        
+        # 필수 컬럼 보정
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
-
         for col, default in required_cols.items():
             if col not in raw_df.columns:
                 raw_df[col] = default
-
         return raw_df
-
     except Exception as e:
-        st.error(f"GSheets read error: {e}")
+        st.error(f"데이터 로드 에러 (Sheet1): {e}")
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
 def get_comments():
     try:
+        # worksheet 이름이 정확히 "comments"인지 확인
         c_df = conn.read(
             spreadsheet=SHEET_URL,
             worksheet="comments",
             ttl=0
         )
-
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
-
         return c_df
-
     except Exception as e:
-        st.error(f"GSheets comment error: {e}")
+        st.error(f"댓글 로드 에러 (comments): {e}")
         return pd.DataFrame(columns=['name','comment','date'])
 
-
+# 함수 호출
 df = get_full_data()
 comments_df = get_comments()
 
