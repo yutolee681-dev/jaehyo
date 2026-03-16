@@ -247,28 +247,28 @@ if st.session_state.is_auth:
                         b_col1, b_col2 = st.columns(2)
                         with b_col1:
                             if st.button("💾 수정 저장", key=f"sv_{idx}", use_container_width=True):
-                                # 수정된 데이터 반영
+                                # 데이터 수정 반영
                                 df.at[idx, 'weight'] = new_w
                                 df.at[idx, 'memo'] = new_m
                                 
-                                # [수정] 데이터 저장 로직 강화
-                                # gsheets 라이브러리가 헷갈리지 않게 ID와 시트 이름을 정확히 명시
-                                conn.update(
-                                    spreadsheet=SHEET_ID,  # URL 대신 ID 사용
+                                # [변경] update 대신 create를 사용해서 시트를 통째로 새로 씁니다.
+                                conn.create(
+                                    spreadsheet=SHEET_URL, # 원래 쓰시던 SHEET_URL 변수 사용
                                     worksheet="Sheet1", 
                                     data=df
                                 )
-                                st.success("수정 완료! 🔄")
+                                st.success("수정 완료! 🔥")
                                 time.sleep(0.5)
                                 st.rerun()
                         
                         with b_col2:
                             if st.button("🗑️ 기록 삭제", key=f"dc_{idx}", use_container_width=True):
-                                # 해당 행 삭제 후 인덱스 초기화 없이 원본 df 업데이트
+                                # 행 삭제
                                 final_df = df.drop(idx)
                                 
-                                conn.update(
-                                    spreadsheet=SHEET_ID, 
+                                # [변경] update 대신 create 사용
+                                conn.create(
+                                    spreadsheet=SHEET_URL, 
                                     worksheet="Sheet1", 
                                     data=final_df
                                 )
