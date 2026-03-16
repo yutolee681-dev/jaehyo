@@ -192,31 +192,34 @@ if not comments_df.empty:
         display_comments = comments_df.sort_index(ascending=False).head(10)
         
         for idx, row in display_comments.iterrows():
-            c_col, d_col = st.columns([5, 1])
+            # [수정] 비율을 8:1로 조절하여 텍스트 공간을 넓히고 삭제 버튼 공간을 줄임
+            c_col, d_col = st.columns([8, 1])
             
             with c_col:
-                # [디자인 변경] 작성자와 내용을 분리하여 출력
+                # [수정] div 여백(margin)을 최소화하여 한 칸당 높이를 줄임
                 st.markdown(f"""
-                    <div style="margin-bottom: 5px;">
-                        <span style="font-weight: bold; color: #29b5e8; font-size: 0.9rem;">{row['name']}</span> 
-                        <span style="color: gray; font-size: 0.7rem; margin-left: 5px;">{row['date']}</span>
+                    <div style="line-height: 1.2;">
+                        <span style="font-weight: bold; color: #29b5e8; font-size: 0.85rem;">{row['name']}</span> 
+                        <span style="color: gray; font-size: 0.7rem; margin-left: 3px;">{row['date']}</span>
                     </div>
-                    <div style="font-size: 1rem; margin-bottom: 10px; line-height: 1.4;">
+                    <div style="font-size: 0.95rem; margin-top: 2px; color: #eee;">
                         {row['comment']}
                     </div>
                 """, unsafe_allow_html=True)
             
-            # 본인 댓글일 때만 삭제 버튼
             if st.session_state.is_auth and row['name'] == st.session_state.user_name:
                 with d_col:
+                    # [팁] 버튼 간격을 줄이기 위해 작은 스타일 적용
                     if st.button("🗑️", key=f"del_msg_{idx}"):
                         new_comments_df = comments_df.drop(idx)
                         if save_to_gsheet(new_comments_df, "comments"):
                             st.warning("삭제됨")
                             time.sleep(0.5)
                             st.rerun()
-            st.divider()
-
+            
+            # [수정] 구분선 간격도 최소화
+            st.markdown("<hr style='margin: 8px 0; border: 0.1px solid #333;'>", unsafe_allow_html=True)
+            
 # --- 6. 사용자 인증 ---
 if not st.session_state.is_auth:
     st.subheader("👤 사용자 인증")
