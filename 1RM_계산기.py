@@ -215,46 +215,49 @@ st.divider()
 
 # --- 6. 사용자 인증 ---
 if not st.session_state.is_auth:
-    st.write("---")
-    # 메인 화면에는 버튼 하나만 깔끔하게 노출
-    with st.popover("🔐 로그인을 하려면 여기를 누르세요", use_container_width=True):
-        st.subheader("사용자 인증")
-        auth_mode = st.radio("방식 선택", ["기존 사용자", "신규 등록"], horizontal=True)
+    with st.container():
+        st.subheader("👤 사용자 인증")
+        input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
         
-        if auth_mode == "기존 사용자":
+        if input_mode == "기존 사용자":
             user_list = sorted(df['name'].dropna().unique().tolist()) if not df.empty else []
             
-            # 팝업 안에서 이름을 선택
+            # 1. 디자인은 기존과 동일하게 유지
+            # 2. index=None과 placeholder 조합으로 모바일 브라우저의 '자동 포커스'를 방지합니다.
             selected_name = st.selectbox(
                 "이름 선택", 
                 options=user_list,
                 index=None,
-                placeholder="이름을 골라주세요",
-                key="auth_pop_select"
+                placeholder="이름을 선택하세요",
+                key="auth_name_final_select"
             )
             
+            # 이름이 선택된 경우에만 비밀번호 입력창 노출
             if selected_name:
-                pw_input = st.text_input("비밀번호", type="password", key="auth_pop_pw")
+                st.write(f"✅ **{selected_name}** 님이 선택되었습니다.")
+                pw_input = st.text_input("비밀번호", type="password", key="login_pw_final")
                 
-                if st.button("로그인 완료", use_container_width=True):
+                if st.button("로그인", use_container_width=True):
                     user_rows = df[df['name'] == selected_name]
+                    # 따옴표 제거 후 비교 로직 유지
                     stored_pw = str(user_rows.iloc[-1]['password']).strip().replace("'", "")
                     
                     if pw_input.strip() == stored_pw:
                         st.session_state.is_auth = True
                         st.session_state.user_name = selected_name
                         st.session_state.user_gender = user_rows.iloc[-1]['gender']
-                        st.success(f"{selected_name}님 확인되었습니다!")
+                        st.success(f"어서오세요, {selected_name}님!")
                         time.sleep(0.5)
                         st.rerun()
                     else:
-                        st.error("비밀번호 불일치")
+                        st.error("비밀번호가 틀렸습니다.")
                         
         else:
-            # 신규 등록 로직
-            new_name = st.text_input("새 이름", placeholder="예: 재효")
-            new_gender = st.radio("성별", ["남성", "여성"], horizontal=True)
-            new_pw = st.text_input("비밀번호 설정", type="password", key="new_auth_pw")
+            # 신규 등록 로직 (기존과 동일)
+            reg_col1, reg_col2 = st.columns(2)
+            new_name = reg_col1.text_input("새 이름", placeholder="예: 재효")
+            new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
+            new_pw = st.text_input("비밀번호 설정", type="password")
             
             if st.button("등록 및 로그인", use_container_width=True):
                 if new_name and new_pw:
