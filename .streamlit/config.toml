@@ -1,0 +1,15 @@
+[theme]
+# 기본 테마를 다크모드로 강제 고정
+base="dark"
+
+# 재효님이 좋아하는 하늘색 포인트를 버튼/링크 등에 적용
+primaryColor="#29b5e8"
+
+# 배경을 아주 짙은 회색(Streamlit 공식 다크모드 색상)으로 지정
+backgroundColor="#0e1117"
+
+# 입력창이나 카드 배경색
+secondaryBackgroundColor="#262730"
+
+# 글자색 (밝은 회색/흰색)
+textColor="#fafafa"
