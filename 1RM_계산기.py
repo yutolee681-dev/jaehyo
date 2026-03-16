@@ -191,7 +191,7 @@ if st.session_state.is_auth:
             kst_now = datetime.now() + timedelta(hours=9)
             new_c_row = pd.DataFrame([{"name": st.session_state.user_name, "comment": new_comment, "date": kst_now.strftime("%m/%d %H:%M")}])
             all_comments = pd.concat([comments_df, new_c_row], ignore_index=True)
-            conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=all_comments)
+            conn.update(spreadsheet=SHEET_URL, worksheet="comments", data=updated_comments)
             st.rerun()
 else:
     st.info("로그인하면 응원 댓글을 남길 수 있습니다.")
