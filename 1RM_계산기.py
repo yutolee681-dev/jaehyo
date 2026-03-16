@@ -118,62 +118,51 @@ if not comments_df.empty:
 
 st.divider()
 
-# --- 6. 사용자 인증 (비밀번호 강제 확인 모드) ---
+# --- 6. 사용자 인증 (캐시 무시 및 정확한 값 추출 버전) ---
 if not st.session_state.is_auth:
     st.subheader("👤 사용자 인증")
+    
+    # [중요] 로그인 창 위에 강제 새로고침 버튼 하나 더 두기
+    if st.button("🔄 데이터 최신화 (로그인 안 될 때 클릭)"):
+        st.cache_data.clear()
+        st.rerun()
+
     input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
     
     if input_mode == "기존 사용자":
-        if not df.empty and 'name' in df.columns:
-            user_list = sorted(df['name'].dropna().astype(str).str.strip().unique().tolist())
-        else:
-            user_list = []
-        
+        # 이름 목록 추출 시 데이터 타입 강제 및 공백 제거
+        user_list = sorted(df['name'].dropna().astype(str).str.strip().unique().tolist()) if not df.empty else []
         selected_name = st.selectbox("이름 선택", options=user_list, index=None, placeholder="이름을 선택하세요")
         
         if selected_name:
             pw_input = st.text_input("비밀번호", type="password")
             if st.button("로그인", use_container_width=True):
-                # 1. 이름으로 해당 사용자의 모든 행 찾기
+                # 해당 이름의 모든 행을 가져온 뒤 가장 마지막 행 선택
                 user_rows = df[df['name'].astype(str).str.strip() == selected_name]
                 
                 if not user_rows.empty:
-                    # 2. 가장 마지막에 저장된 비밀번호 가져오기
-                    raw_val = user_rows.iloc[-1]['password']
+                    # 마지막 행의 password 값을 가져와서 정제
+                    target_row = user_rows.iloc[-1]
+                    raw_val = target_row['password']
                     
-                    # 3. 모든 변수 제거하고 순수 문자열 비교 (숫자든 문자든 상관없음)
-                    # 5207.0 -> 5207 로 바꾸는 가장 강력한 방법
-                    clean_sheet_pw = str(raw_val).replace("'", "").strip()
-                    if clean_sheet_pw.endswith('.0'):
-                        clean_sheet_pw = clean_sheet_pw[:-2]
+                    # 5207.0 -> 5207 변환 로직
+                    try:
+                        clean_sheet_pw = str(int(float(str(raw_val).replace("'", "").strip())))
+                    except:
+                        clean_sheet_pw = str(raw_val).replace("'", "").strip()
                     
-                    user_entered_pw = pw_input.strip()
-
-                    # 4. 비교 및 결과 표시
-                    if user_entered_pw == clean_sheet_pw:
+                    if pw_input.strip() == clean_sheet_pw:
                         st.session_state.update({
                             'is_auth': True, 
                             'user_name': selected_name, 
-                            'user_gender': user_rows.iloc[-1]['gender']
+                            'user_gender': target_row['gender']
                         })
-                        st.success(f"로그인 성공! 환영합니다.")
-                        time.sleep(0.5)
-                        st.rerun()
+                        st.success("로그인 성공!")
+                        time.sleep(0.5); st.rerun()
                     else:
-                        # 💥 틀렸을 때만 비밀번호 힌트를 빨간 박스로 보여줍니다.
-                        st.error("비밀번호가 일치하지 않습니다!")
-                        st.warning(f"시스템이 시트에서 찾은 [{selected_name}]님의 비밀번호는 **{clean_sheet_pw}** 입니다. 똑같이 입력해 보세요.")
+                        st.error(f"비밀번호가 틀렸습니다. (시트에서 읽은 값: {clean_sheet_pw})")
                 else:
-                    st.error("사용자를 찾을 수 없습니다. (데이터 로딩 오류)")
-    else:
-        # 신규 등록
-        reg_col1, reg_col2 = st.columns(2)
-        new_name = reg_col1.text_input("새 이름")
-        new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
-        new_pw = st.text_input("비밀번호 설정", type="password")
-        if st.button("등록 및 로그인", use_container_width=True) and new_name and new_pw:
-            st.session_state.update({'is_auth': True, 'user_name': new_name.strip(), 'user_gender': new_gender, 'temp_pw': f"'{new_pw}"})
-            st.rerun()
+                    st.error("사용자를 찾을 수 없습니다.")
 
 
 # --- 7 & 8. 개인 분석 및 데이터 입력 (로그인 후) ---
