@@ -217,13 +217,30 @@ if st.session_state.is_auth:
         tab1, tab2, tab3 = st.tabs(["🏆 최고 기록", "📈 성장률 분석", "📋 전체 히스토리"])
 
         with tab1:
+            # 1. 데이터 복사 및 중량 숫자 형변환 (이게 핵심!)
             chart_df = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
+            chart_df['weight'] = pd.to_numeric(chart_df['weight'], errors='coerce') # 숫자로 변환
             chart_df['exercise_short'] = chart_df['exercise'].map(rename_map).fillna(chart_df['exercise'])
+            
+            # 2. 차트 설정
             base = alt.Chart(chart_df).encode(
                 y=alt.Y('exercise_short:N', sort='-x', title=None),
                 x=alt.X('weight:Q', title="중량 (lbs)")
             )
-            st.altair_chart(base.mark_bar(color="#29b5e8") + base.mark_text(align='right', dx=-5, color='white'), use_container_width=True)
+        
+            # 3. 막대와 텍스트 결합
+            bars = base.mark_bar(color="#29b5e8")
+            
+            # 막대 안에 숫자 표시 (format='d'로 정수 표시)
+            text = base.mark_text(
+                align='right',
+                dx=-5,  # 막대 끝에서 안쪽으로 살짝 이동
+                color='white'
+            ).encode(
+                text=alt.Text('weight:Q', format='.0f') # 소수점 없이 숫자 표시
+            )
+        
+            st.altair_chart(bars + text, use_container_width=True)
 
         with tab2:
             unique_ex = sorted(my_data['exercise'].unique())
