@@ -32,31 +32,24 @@ rename_map = {
     "Overhead Squat": "OHS"
 }
 
-# 2. 구글 시트 연결
+# 2. 구글 시트 연결 (Secrets 설정을 그대로 사용)
 conn = st.connection("gsheets", type=GSheetsConnection)
-# 변경 후
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
-
-SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
 def get_full_data():
     try:
+        # URL을 직접 적지 않고 secrets에 등록된 기본 시트를 읽어옵니다.
         raw_df = conn.read(
             worksheet="Sheet1",
             ttl=0
         )
-
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
-
+        
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
-
         for col, default in required_cols.items():
             if col not in raw_df.columns:
                 raw_df[col] = default
-
         return raw_df
-
     except Exception as e:
         st.error(f"GSheets read error: {e}")
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
@@ -67,17 +60,14 @@ def get_comments():
             worksheet="comments",
             ttl=0
         )
-
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
-
         return c_df
-
     except Exception as e:
         st.error(f"GSheets comment error: {e}")
         return pd.DataFrame(columns=['name','comment','date'])
 
-
+# 데이터 로드 실행
 df = get_full_data()
 comments_df = get_comments()
 
