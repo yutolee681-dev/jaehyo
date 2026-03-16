@@ -198,7 +198,7 @@ if st.session_state.is_auth:
     st.subheader("📊 나의 퍼포먼스 리포트")
     tab1, tab2, tab3 = st.tabs(["🏆 최고 기록", "📈 성장률 분석", "📋 전체 히스토리"])
 
-with tab1:
+    with tab1:
         if not my_data.empty:
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
