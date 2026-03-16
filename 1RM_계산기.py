@@ -382,27 +382,32 @@ if st.session_state.is_auth:
         key="update_ex_select"
     )
     
-    # 해당 종목의 이전 최고 기록 가져오기 (성공 중량 기본값 세팅용)
+    # 해당 종목의 이전 최고 기록 가져오기
     ex_record = my_data[my_data['exercise'] == save_exercise]
     prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
 
-    # 2. 입력 폼 (clear_on_submit=True로 저장 후 입력칸 자동 초기화)
+    # 2. 입력 폼
     with st.form(key="record_form", clear_on_submit=True):
         new_weight = st.number_input("성공 중량 (lbs)", value=prev_max, step=5.0)
-        
-        # 메모 입력 (key를 직접 수정하지 않아 에러 방지)
         new_memo = st.text_input("메모", placeholder="컨디션이나 와드 기록 등", key="memo_input_widget")
-        
-        # 저장 버튼
         submit_btn = st.form_submit_button("🔥 기록 저장")
         
         if submit_btn:
-            # 시간 설정 (KST)
             kst_now = datetime.now() + timedelta(hours=9)
             
-            # [보안 강화] 로그인 시 세션에 저장된 실제 비밀번호를 가져옴
-            # 만약 없을 경우를 대비해 'UNKNOWN' 처리 (0000 방지)
-            user_pw = st.session_state.get("password", "UNKNOWN")
+            # [보안 및 에러 방지 핵심 로직]
+            # 1순위: 세션에 저장된 'password' (로그인 시 입력값)
+            # 2순위: 재효님일 경우 '5207' 강제 할당
+            # 3순위: 그래도 없으면 로그인 창에 입력된 값을 직접 참조 (최후의 수단)
+            user_pw = st.session_state.get("password")
+            
+            if not user_pw:
+                if st.session_state.user_name == "재효":
+                    user_pw = "5207"
+                else:
+                    # 세션에 비번이 없으면 아예 저장을 막아버립니다 (UNKNOWN 방지)
+                    st.error("인증 정보가 만료되었습니다. 로그아웃 후 다시 로그인해주세요.")
+                    st.stop()
             
             # 새로운 데이터 프레임 생성
             new_record = pd.DataFrame([{
@@ -410,7 +415,7 @@ if st.session_state.is_auth:
                 "exercise": save_exercise, 
                 "weight": new_weight, 
                 "date": kst_now.strftime("%Y-%m-%d"), 
-                "password": f"'{user_pw}",  # 구글 시트에서 숫자 앞 '는 문자열 형식을 의미함
+                "password": f"'{user_pw}",  # 앞에 '를 붙여야 시트에서 숫자로 안 변함
                 "gender": st.session_state.user_gender, 
                 "memo": new_memo
             }])
@@ -418,9 +423,9 @@ if st.session_state.is_auth:
             # 전체 데이터와 합치기
             updated_df = pd.concat([df, new_record], ignore_index=True)
             
-            # 구글 시트 저장 (connections.gsheets 경로 대응 완료된 함수 호출)
+            # 구글 시트 저장
             if save_to_gsheet(updated_df, "Sheet1"):
-                st.success(f"[{save_exercise}] {new_weight}lbs 저장 완료! 본인 비밀번호로 보호됩니다. 🔥")
+                st.success(f"[{save_exercise}] {new_weight}lbs 저장 완료! 🔥")
                 time.sleep(1)
                 st.rerun()
 
