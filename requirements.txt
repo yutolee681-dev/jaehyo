@@ -1,4 +1,6 @@
-streamlit
-streamlit-gsheets
-pandas
-altair
+streamlit==1.36.0
+st-gsheets-connection==0.0.4
+pandas==2.2.2
+altair==5.3.0
+gspread
+google-auth
