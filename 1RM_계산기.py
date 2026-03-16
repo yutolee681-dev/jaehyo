@@ -122,39 +122,34 @@ if not comments_df.empty:
 
 st.divider()
 
-# --- 6. 사용자 인증 (AttributeError 수정 버전) ---
+# --- 6. 사용자 인증 (비밀번호 불일치 완벽 해결 버전) ---
 if not st.session_state.is_auth:
     st.subheader("👤 사용자 인증")
     input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
     
     if input_mode == "기존 사용자":
-        # [수정] 순서 변경: dropna() -> astype(str) -> str.strip() -> unique()
+        # 이름 목록 가져오기 (공백 제거 및 문자열 처리)
         user_list = []
         if not df.empty and 'name' in df.columns:
-            user_list = sorted(
-                df['name']
-                .dropna()
-                .astype(str)
-                .str.strip()  # 여기서 먼저 공백을 제거합니다
-                .unique()     # 그 다음 중복을 제거합니다
-                .tolist()
-            )
+            user_list = sorted(df['name'].dropna().astype(str).str.strip().unique().tolist())
         
         selected_name = st.selectbox("이름 선택", options=user_list, index=None, placeholder="이름을 선택하세요")
         
         if selected_name:
             pw_input = st.text_input("비밀번호", type="password")
             if st.button("로그인", use_container_width=True):
-                # 이름 비교 시에도 안전하게 처리
+                # 선택된 이름과 시트의 이름 비교
                 user_rows = df[df['name'].astype(str).str.strip() == selected_name]
                 
                 if not user_rows.empty:
-                    raw_pw = str(user_rows.iloc[-1]['password']).strip()
-                    
-                    # 비밀번호 정제 로직
-                    clean_pw = raw_pw.replace("'", "")
-                    if clean_pw.endswith('.0'):
-                        clean_pw = clean_pw[:-2]
+                    # [핵심] 5207.0 같은 숫자 형식을 '5207'로 강제 정수화
+                    raw_val = user_rows.iloc[-1]['password']
+                    try:
+                        # 숫자(5207.0) -> 실수(5207.0) -> 정수(5207) -> 문자("5207")
+                        clean_pw = str(int(float(str(raw_val).replace("'", "").strip())))
+                    except:
+                        # 만약 문자가 섞여있어 숫자로 변환 안 되면 그냥 문자열 처리
+                        clean_pw = str(raw_val).replace("'", "").strip()
                     
                     if pw_input.strip() == clean_pw:
                         st.session_state.update({
@@ -162,10 +157,33 @@ if not st.session_state.is_auth:
                             'user_name': selected_name, 
                             'user_gender': user_rows.iloc[-1]['gender']
                         })
-                        st.success("환영합니다! 🔥")
-                        time.sleep(0.5); st.rerun()
+                        st.success(f"{selected_name}님, 로그인 성공! 🔥")
+                        time.sleep(0.5)
+                        st.rerun()
                     else:
                         st.error("비밀번호가 틀렸습니다.")
+                else:
+                    st.error("사용자 정보를 찾을 수 없습니다.")
+    else:
+        # 신규 등록
+        reg_col1, reg_col2 = st.columns(2)
+        new_name = reg_col1.text_input("새 이름", placeholder="예: 홍길동")
+        new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
+        new_pw = st.text_input("비밀번호 설정", type="password")
+        
+        if st.button("등록 및 로그인", use_container_width=True):
+            if new_name and new_pw:
+                st.session_state.update({
+                    'is_auth': True,
+                    'user_name': new_name.strip(),
+                    'user_gender': new_gender,
+                    'temp_pw': f"'{new_pw}"
+                })
+                st.success("등록 완료!")
+                time.sleep(0.5)
+                st.rerun()
+            else:
+                st.error("이름과 비밀번호를 모두 입력해주세요.")
 
 
 # --- 7 & 8. 개인 분석 및 데이터 입력 (로그인 후) ---
