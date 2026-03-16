@@ -29,16 +29,16 @@ rename_map = {
     "Jerk": "Jerk", "Overhead Squat": "OHS"
 }
 
-# --- 2. 구글 시트 연결 설정 ---
-# .streamlit/secrets.toml에 관련 설정이 되어 있어야 합니다.
+# --- 2. 구글 시트 연결 설정 (핵심 수정 부분) ---
+# URL 끝에 /edit#gid=0 등을 지우고 ID까지만 입력하는 것이 가장 안전합니다.
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
+
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        # worksheet 뿐만 아니라 spreadsheet URL을 반드시 넣어줘야 합니다.
+        # spreadsheet=SHEET_URL 인자를 추가하여 404 에러 방지
         raw_df = conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=0)
-        
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
         
@@ -48,19 +48,18 @@ def get_full_data():
                 raw_df[col] = default
         return raw_df
     except Exception as e:
-        st.error(f"GSheets read error: {e}")
+        st.error(f"Sheet1 읽기 에러: {e}")
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
 def get_comments():
     try:
-        # 여기도 동일하게 spreadsheet 인자를 추가합니다.
+        # worksheet="comments" 이름 확인 완료
         c_df = conn.read(spreadsheet=SHEET_URL, worksheet="comments", ttl=0)
-        
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
         return c_df
     except Exception as e:
-        st.error(f"GSheets comment error: {e}")
+        st.error(f"comments 읽기 에러: {e}")
         return pd.DataFrame(columns=['name','comment','date'])
 
 # 데이터 로드
