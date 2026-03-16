@@ -308,7 +308,7 @@ if st.session_state.is_auth:
                 with c1:
                     st.table(calc_table.iloc[:mid].set_index("비율 (%)"))
                 with c2:
-                    st.table(calc_table.iloc[mid:].set_index("비율 (%)")
+                    st.table(calc_table.iloc[mid:].set_index("비율 (%)"))
                              
         with tab2:
             unique_ex = sorted(my_data['exercise'].unique())
