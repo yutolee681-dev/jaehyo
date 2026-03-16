@@ -60,22 +60,47 @@ def get_data_via_csv(worksheet_name="Sheet1"):
 # [중요] 에러 없는 직접 저장 함수
 def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
     try:
-        # secrets에서 인증 정보 가져오기
-        creds_dict = st.secrets["connections"]["gsheets"]
-        credentials = Credentials.from_service_account_info(
-            creds_dict,
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
-        )
+        # [수정 포인트] Secrets에서 정보를 가져오는 경로를 유연하게 설정
+        if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+            creds_info = st.secrets["connections"]["gsheets"]
+        elif "gsheets" in st.secrets:
+            creds_info = st.secrets["gsheets"]
+        else:
+            st.error("Secrets 설정에서 [connections.gsheets] 또는 [gsheets]를 찾을 수 없습니다.")
+            return False
+
+        # gspread 인증을 위한 딕셔너리 구성 (직접 매핑)
+        # secrets.toml에 있는 키 이름들을 gspread가 기대하는 형식으로 맞춰줍니다.
+        credentials_dict = {
+            "type": creds_info["type"],
+            "project_id": creds_info["project_id"],
+            "private_key_id": creds_info["private_key_id"],
+            "private_key": creds_info["private_key"].replace("\\n", "\n"), # 줄바꿈 처리
+            "client_email": creds_info["client_email"],
+            "client_id": creds_info["client_id"],
+            "auth_uri": creds_info["auth_uri"],
+            "token_uri": creds_info["token_uri"],
+            "auth_provider_x509_cert_url": creds_info["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": creds_info["client_x509_cert_url"],
+        }
+
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        credentials = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
         client = gspread.authorize(credentials)
+        
+        # 시트 열기 및 업데이트
         sh = client.open_by_key(SHEET_ID)
         worksheet = sh.worksheet(worksheet_name)
         
-        # 전체 덮어쓰기 (가장 확실한 방법)
+        # 데이터프레임 전처리: NaN은 빈 문자열로, 모든 데이터를 리스트로
+        dataframe = dataframe.fillna("")
+        data_to_save = [dataframe.columns.values.tolist()] + dataframe.values.tolist()
+        
         worksheet.clear()
-        worksheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+        worksheet.update(data_to_save)
         return True
     except Exception as e:
-        st.error(f"구글 시트 저장 실패: {e}")
+        st.error(f"구글 시트 접근 에러: {e}")
         return False
 
 # 데이터 로드
