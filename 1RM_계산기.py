@@ -233,25 +233,43 @@ if not st.session_state.is_auth:
         if selected_name != "선택하세요":
             pw_input = st.text_input("비밀번호", type="password")
             if st.button("로그인", use_container_width=True):
+                # 1. 재효님 로그인 체크
                 if selected_name == "재효" and pw_input.strip() == "5207":
-                    st.session_state.update({"is_auth": True, "user_name": "재효", "user_gender": "남성"})
+                    st.session_state.update({
+                        "is_auth": True, 
+                        "user_name": "재효", 
+                        "user_gender": "남성",
+                        "password": "5207"  # 로그인한 비번 기억
+                    })
                     st.rerun()
                 
+                # 2. 일반 사용자 로그인 체크
                 user_rows = df[df['name'].astype(str).str.strip() == selected_name]
                 if not user_rows.empty:
                     clean_sheet_pw = str(user_rows.iloc[-1]['password']).strip()
                     if pw_input.strip() == clean_sheet_pw:
-                        st.session_state.update({"is_auth": True, "user_name": selected_name, "user_gender": user_rows.iloc[-1]['gender']})
+                        st.session_state.update({
+                            "is_auth": True, 
+                            "user_name": selected_name, 
+                            "user_gender": user_rows.iloc[-1]['gender'],
+                            "password": pw_input.strip()  # 로그인한 비번 기억
+                        })
                         st.rerun()
                     else:
                         st.error("비밀번호 불일치")
     else:
+        # 3. 신규 사용자 등록
         reg_col1, reg_col2 = st.columns(2)
         new_name = reg_col1.text_input("새 이름")
         new_gender = reg_col2.radio("성별", ["남성", "여성"], horizontal=True)
         new_pw = st.text_input("비밀번호 설정", type="password")
         if st.button("등록 및 로그인", use_container_width=True) and new_name and new_pw:
-            st.session_state.update({"is_auth": True, "user_name": new_name.strip(), "user_gender": new_gender, "temp_pw": new_pw})
+            st.session_state.update({
+                "is_auth": True, 
+                "user_name": new_name.strip(), 
+                "user_gender": new_gender, 
+                "password": new_pw.strip()  # 설정한 비번 기억
+            })
             st.rerun()
 
 # --- 7. 개인 데이터 분석 통합 ---
