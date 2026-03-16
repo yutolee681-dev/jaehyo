@@ -42,6 +42,7 @@ SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 def get_full_data():
     try:
         raw_df = conn.read(
+            spreadsheet=SHEET_URL,
             worksheet="Sheet1",
             ttl=0
         )
@@ -64,6 +65,7 @@ def get_full_data():
 def get_comments():
     try:
         c_df = conn.read(
+            spreadsheet=SHEET_URL,
             worksheet="comments",
             ttl=0
         )
