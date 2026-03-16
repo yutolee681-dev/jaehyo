@@ -229,17 +229,20 @@ if st.session_state.is_auth:
             calc_ex = st.selectbox("종목 선택", best['exercise'].unique(), key="percent_box")
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
             
-            # 50%부터 100%까지 5% 단위로 생성
+            # 50%부터 100%까지 5% 단위로 생성 (range 수정)
             per_list = []
-            for p in range(50, 105, -5): # 50부터 100까지
+            for p in range(50, 105, 5): # -5가 아니라 5로 써야 숫자가 생깁니다!
                 per_list.append({
                     "비율": f"{p}%",
                     "중량": f"{round(max_w * (p/100), 1)}"
                 })
             
-            per_df = pd.DataFrame(per_list).set_index("비율")
-            # 모바일 최적화: 인덱스(비율)와 값을 한눈에
-            st.dataframe(per_df, use_container_width=True)
+            # 데이터 생성 확인 후 인덱스 설정
+            if per_list:
+                per_df = pd.DataFrame(per_list).set_index("비율")
+                st.dataframe(per_df, use_container_width=True)
+            else:
+                st.warning("데이터를 불러올 수 없습니다.")
     
     with tab2:
         if not my_data.empty:
