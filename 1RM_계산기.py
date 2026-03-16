@@ -338,7 +338,7 @@ if st.session_state.is_auth:
                                 # 원본 df의 인덱스를 찾아 업데이트
                                 df.at[idx, 'weight'] = new_w
                                 df.at[idx, 'memo'] = new_m
-                                conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=df)
+                                conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=df)
                                 st.success("수정 완료!")
                                 time.sleep(0.5)
                                 st.rerun()
@@ -347,7 +347,7 @@ if st.session_state.is_auth:
                             if st.button("🗑️ 기록 삭제", key=f"dc_{idx}", use_container_width=True):
                                 # 해당 행 삭제
                                 final_df = df.drop(idx)
-                                conn.update(spreadsheet=SHEET_URL, worksheet="sheet1", data=final_df)
+                                conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=final_df)
                                 st.warning("기록 삭제됨")
                                 time.sleep(0.5)
                                 st.rerun()
