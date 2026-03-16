@@ -41,12 +41,7 @@ SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
 def get_full_data():
     try:
-        raw_df = conn.read(
-            spreadsheet=SHEET_ID,
-            worksheet="Sheet1",
-            ttl=0
-        )
-
+        raw_df = conn.read(worksheet="Sheet1", ttl=0)
 
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
@@ -65,11 +60,7 @@ def get_full_data():
 
 def get_comments():
     try:
-        c_df = conn.read(
-            spreadsheet=SHEET_ID,
-            worksheet="comments",
-            ttl=0
-        )
+        c_df = conn.read(worksheet="comments", ttl=0)
 
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
