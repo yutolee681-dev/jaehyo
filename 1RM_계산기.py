@@ -222,23 +222,26 @@ if st.session_state.is_auth:
             # 두 레이어를 합쳐서 표시
             st.altair_chart(bars + text, use_container_width=True)
 
-            # --- 1RM 비율별 중량 표 (50%부터 시작) ---
+            # --- 1RM 비율별 중량 표 (모바일 최적화) ---
             st.divider()
             st.markdown("### 📊 1RM 비율표 (lbs)")
             
+            # 종목 선택 (가장 최근에 기록한 종목들이 위로 오게)
             calc_ex = st.selectbox("종목 선택", best['exercise'].unique(), key="percent_box")
+            
+            # 선택한 종목의 1RM(최고치) 가져오기
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
             
-            # 50%부터 100%까지 5% 단위로 생성
+            # 100%부터 50%까지 5% 단위 리스트 생성
             per_list = []
-            for p in range(50, 105, -5): # 50부터 100까지
+            for p in range(100, 45, -5):
                 per_list.append({
                     "비율": f"{p}%",
-                    "중량": f"{round(max_w * (p/100), 1)}"
+                    "중량": f"{round(max_w * (p/100), 1)}" # lbs 단위 생략해서 숫자만 깔끔하게
                 })
             
+            # 모바일에서 보기 편하게 너비 꽉 채우기
             per_df = pd.DataFrame(per_list).set_index("비율")
-            # 모바일 최적화: 인덱스(비율)와 값을 한눈에
             st.dataframe(per_df, use_container_width=True)
     
     with tab2:
