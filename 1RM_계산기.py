@@ -203,21 +203,22 @@ if st.session_state.is_auth:
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
             
-            # 1. 막대 그래프 설정
+            # 1. 막대 그래프
             bars = alt.Chart(best).mark_bar(color="#29b5e8").encode(
                 y=alt.Y('ex_short:N', sort='-x', title=None),
                 x=alt.X('weight:Q', title="lbs")
             )
             
-            # 2. [추가] 막대 위에 숫자 라벨 표시
+            # 2. 막대 안쪽(Inside) 숫지 표시
             text = bars.mark_text(
-                align='left',
+                align='right',      # 오른쪽 정렬하여 막대 끝 안쪽에 위치
                 baseline='middle',
-                dx=3  # 막대 끝에서 약간 띄우기
+                dx=-5,              # 막대 오른쪽 끝에서 안쪽으로 5픽셀 이동
+                color='white'       # 막대 색상이 파란색 계열이므로 흰색이 잘 보임
             ).encode(
                 text='weight:Q'
             )
-            
+                       
             # 두 레이어를 합쳐서 표시
             st.altair_chart(bars + text, use_container_width=True)
             
