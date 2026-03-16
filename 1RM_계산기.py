@@ -9,8 +9,15 @@ from google.oauth2.service_account import Credentials
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
 
-# --- 서수(Ordinal) 변환 함수 ---
+# --- 서수(Ordinal) 및 메달 변환 함수 (수정됨) ---
 def get_ordinal(n):
+    if n == 1:
+        return "🥇"
+    elif n == 2:
+        return "🥈"
+    elif n == 3:
+        return "🥉"
+    
     if 11 <= n % 100 <= 13:
         suffix = 'th'
     else:
