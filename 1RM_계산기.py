@@ -10,24 +10,7 @@ from google.oauth2.service_account import Credentials
 
 # 1. 페이지 설정
 st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
-st.markdown("""
-    <style>
-        /* 메인 배경색 */
-        .stApp {
-            background-color: #000000;
-        }
-        /* 사이드바나 익스팬더 배경색 조절 */
-        [data-testid="stExpander"], [data-testid="stForm"] {
-            background-color: #111111;
-            border: 1px solid #333;
-        }
-        /* 테이블 배경색 조절 */
-        .stTable {
-            background-color: #000000;
-            color: #eeeeee;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+
 
 # --- 서수(Ordinal) 변환 함수 ---
 def get_ordinal(n):
