@@ -286,17 +286,36 @@ if st.session_state.is_auth:
 # --- 8. 오늘의 기록 업데이트 ---
 if st.session_state.is_auth:
     st.subheader("💪 오늘의 기록 업데이트")
-    save_exercise = st.selectbox("종목 선택", exercise_list, key="update_ex")
+
+    # [수정] 종목이 변경될 때 메모를 비워주는 함수
+    def clear_memo():
+        st.session_state.new_memo_key = ""
+
+    # 세션 상태에 메모 값이 없으면 초기화
+    if 'new_memo_key' not in st.session_state:
+        st.session_state.new_memo_key = ""
+
+    # [수정] on_change를 추가하여 종목 바뀔 때 clear_memo 실행
+    save_exercise = st.selectbox(
+        "종목 선택", 
+        exercise_list, 
+        key="update_ex", 
+        on_change=clear_memo
+    )
+    
     ex_record = my_data[my_data['exercise'] == save_exercise]
     prev_max = float(ex_record['weight'].max()) if not ex_record.empty else 0.0
 
+    # 폼 내부 로직
     with st.form(key="record_form"):
         new_weight = st.number_input("성공 중량 (lbs)", value=prev_max)
-        new_memo = st.text_input("메모")
+        
+        # [수정] value를 세션 상태와 연결
+        new_memo = st.text_input("메모", key="new_memo_key")
+        
         if st.form_submit_button("🔥 기록 저장"):
             kst_now = datetime.now() + timedelta(hours=9)
-            # 비밀번호 가져오기 (마스터키인 경우 예외처리)
-            current_pw = st.session_state.get("temp_pw", "0000") if st.session_state.user_name != "재효" else "5207"
+            current_pw = st.session_state.get("temp_pw", "5207" if st.session_state.user_name == "재효" else "0000")
             
             new_record = pd.DataFrame([{
                 "name": st.session_state.user_name, 
@@ -307,11 +326,14 @@ if st.session_state.is_auth:
                 "gender": st.session_state.user_gender, 
                 "memo": new_memo
             }])
+            
             updated_df = pd.concat([df, new_record], ignore_index=True)
             if save_to_gsheet(updated_df, "Sheet1"):
-                st.balloons()
+                # 저장 성공 시에도 메모 비우기
+                st.session_state.new_memo_key = ""
                 st.success("저장 완료!")
-                time.sleep(0.5); st.rerun()
+                time.sleep(0.5)
+                st.rerun()
 
 # --- 9. 관리자 모드 ---
 with st.expander("🛠️ Admin"):
