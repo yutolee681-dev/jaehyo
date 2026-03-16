@@ -146,7 +146,7 @@ if not df.empty:
 st.divider()
 
 # --- 5. 응원 메시지 ---
-st.subheader("💬 실시간 응원 한마디")
+st.subheader("💬 실시간 잡도리!!")
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         c1, c2 = st.columns([4, 1])
