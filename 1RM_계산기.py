@@ -90,23 +90,27 @@ if not st.session_state.is_auth:
     mode = st.radio("로그인 방식", ["기존", "신규"], horizontal=True)
     
     if mode == "기존":
-        # 이름 목록에서 결측치 제거 및 문자열 변환
-        if not df.empty:
-            u_list = sorted(df['name'].dropna().unique().map(str).tolist())
-        else:
-            u_list = []
+        # 안전하게 이름 목록 가져오기 (컬럼 존재 여부 체크)
+        u_list = []
+        if not df.empty and 'name' in df.columns:
+            u_list = sorted(df['name'].dropna().unique().astype(str).tolist())
+        
+        if not u_list:
+            st.warning("등록된 사용자가 없습니다. 신규 등록을 먼저 해주세요!")
             
         sel_n = st.selectbox("이름", u_list, index=None, placeholder="이름을 선택하세요")
         pw_i = st.text_input("비밀번호", type="password")
         
         if st.button("로그인", use_container_width=True) and sel_n:
-            # 선택한 사용자의 가장 최근 행 가져오기
+            # 데이터프레임에서 해당 유저 찾기
             user_rows = df[df['name'].astype(str) == sel_n]
+            
             if not user_rows.empty:
-                # 비밀번호 비교 로직 강화 (문자열로 강제 변환 및 공백 제거)
+                # 비밀번호 검증 (문자열/숫자 처리)
                 raw_pw = user_rows.iloc[-1]['password']
-                # float 형태(1234.0)인 경우 정수로 먼저 변환 후 문자열로
-                if isinstance(raw_pw, float):
+                
+                # float 형태(1234.0) 처리 및 공백 제거
+                if isinstance(raw_pw, (float, int)):
                     correct = str(int(raw_pw))
                 else:
                     correct = str(raw_pw).replace("'", "").strip()
@@ -121,25 +125,9 @@ if not st.session_state.is_auth:
                     time.sleep(0.5)
                     st.rerun()
                 else:
-                    st.error("비밀번호가 틀렸습니다. 다시 확인해 주세요.")
+                    st.error("비밀번호가 틀렸습니다.")
             else:
-                st.error("해당 이름의 사용자를 찾을 수 없습니다.")
-    
-    else:
-        # 신규 등록 로직은 기존과 동일하되 비밀번호에 ' 추가 (시트에서 문자로 인식되게)
-        c1, c2 = st.columns(2)
-        new_n = c1.text_input("이름")
-        new_p = st.text_input("비밀번호", type="password")
-        new_g = c2.radio("성별", ["남성", "여성"])
-        if st.button("등록", use_container_width=True) and new_n and new_p:
-            # 즉시 세션 부여
-            st.session_state.update({
-                'is_auth': True, 
-                'user_name': new_n, 
-                'user_gender': new_g, 
-                'temp_pw': f"'{new_p}" # 시트 저장 시 문자로 강제 지정
-            })
-            st.rerun()
+                st.error("사용자 데이터를 불러올 수 없습니다.")
 
 # --- 7. 개인 분석 및 기록 관리 (로그인 후) ---
 if st.session_state.is_auth:
