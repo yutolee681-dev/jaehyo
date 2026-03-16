@@ -32,16 +32,10 @@ rename_map = {
     "Overhead Squat": "OHS"
 }
 
-# 2. 구글 시트 연결
-conn = st.connection("gsheets", type=GSheetsConnection)
-# 변경 후
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
-
-SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
-
 def get_full_data():
     try:
         raw_df = conn.read(
+            spreadsheet=SHEET_URL,  # <-- 이 줄을 추가!
             worksheet="Sheet1",
             ttl=0
         )
@@ -64,6 +58,7 @@ def get_full_data():
 def get_comments():
     try:
         c_df = conn.read(
+            spreadsheet=SHEET_URL,  # <-- 이 줄을 추가!
             worksheet="comments",
             ttl=0
         )
