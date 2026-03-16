@@ -198,19 +198,28 @@ if st.session_state.is_auth:
     st.subheader("📊 나의 퍼포먼스 리포트")
     tab1, tab2, tab3 = st.tabs(["🏆 최고 기록", "📈 성장률 분석", "📋 전체 히스토리"])
 
-    with tab1:
+with tab1:
         if not my_data.empty:
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
-            chart = alt.Chart(best).mark_bar(color="#29b5e8").encode(y=alt.Y('ex_short:N', sort='-x', title=None), x=alt.X('weight:Q', title="lbs"))
-            st.altair_chart(chart, use_container_width=True)
             
-            st.divider()
-            st.subheader("📊 1RM 비율별 중량 표")
-            calc_ex = st.selectbox("종목 선택", best['exercise'].unique())
-            max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
-            per_data = [{"비율": f"{p}%", "중량": f"{round(max_w * (p/100), 1)} lbs"} for p in range(100, 45, -5)]
-            st.table(pd.DataFrame(per_data).set_index("비율"))
+            # 1. 막대 그래프 설정
+            bars = alt.Chart(best).mark_bar(color="#29b5e8").encode(
+                y=alt.Y('ex_short:N', sort='-x', title=None),
+                x=alt.X('weight:Q', title="lbs")
+            )
+            
+            # 2. [추가] 막대 위에 숫자 라벨 표시
+            text = bars.mark_text(
+                align='left',
+                baseline='middle',
+                dx=3  # 막대 끝에서 약간 띄우기
+            ).encode(
+                text='weight:Q'
+            )
+            
+            # 두 레이어를 합쳐서 표시
+            st.altair_chart(bars + text, use_container_width=True)
             
     with tab2:
         if not my_data.empty:
