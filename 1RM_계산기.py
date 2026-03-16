@@ -44,40 +44,46 @@ except Exception as e:
 
 def get_full_data():
     try:
-        # worksheet 이름을 생략하면 '첫 번째 탭'을 자동으로 가져옵니다. 
-        # 만약 첫 번째 탭 이름이 'Sheet1'이 아니더라도 에러가 나지 않습니다.
         raw_df = conn.read(
-            spreadsheet=SHEET_URL,
+            worksheet="Sheet1",
             ttl=0
         )
+
+        st.write("DEBUG Sheet1:", raw_df)
+
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
-        
-        # 필드 보정 로직
+
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
+
         for col, default in required_cols.items():
             if col not in raw_df.columns:
                 raw_df[col] = default
+
         return raw_df
+
     except Exception as e:
-        st.error(f"데이터 로드 에러: {e}")
+        st.error(f"GSheets read error: {e}")
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
 def get_comments():
     try:
-        # comments 시트는 이름으로 찾되, 혹시 모르니 다시 한번 확인해주세요.
         c_df = conn.read(
-            spreadsheet=SHEET_URL,
             worksheet="comments",
             ttl=0
         )
+
+        st.write("DEBUG comments:", c_df)
+
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
+
         return c_df
+
     except Exception as e:
-        # 여기서 404가 난다면 구글 시트 하단 탭 이름이 'comments'가 맞는지 꼭 봐주세요!
-        st.error(f"댓글 로드 에러 (comments): {e}")
+        st.error(f"GSheets comment error: {e}")
         return pd.DataFrame(columns=['name','comment','date'])
+
         
 # 함수 호출
 df = get_full_data()
