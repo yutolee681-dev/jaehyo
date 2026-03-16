@@ -279,6 +279,37 @@ if st.session_state.is_auth:
         
             st.altair_chart(bars + text, use_container_width=True)
 
+            # [복구] 1RM 비율별 중량 계산기 (5% 단위)
+            st.divider()
+            st.subheader("📊 1RM 비율별 중량 표")
+            
+            # 종목 선택 (내 기록이 있는 종목 중 선택)
+            calc_ex = st.selectbox("비율을 계산할 종목 선택", chart_df['exercise'].unique(), key="calc_ex_select")
+            
+            if calc_ex:
+                # 해당 종목의 최고 중량 가져오기
+                max_w = chart_df[chart_df['exercise'] == calc_ex]['weight'].iloc[0]
+                
+                # 50%부터 100%까지 5% 단위 데이터 생성
+                per_list = range(100, 45, -5) # 100%부터 거꾸로 출력
+                calc_data = []
+                for p in per_list:
+                    calc_data.append({
+                        "비율 (%)": f"{p}%",
+                        "중량 (lbs)": f"{round(max_w * (p/100), 1)} lbs"
+                    })
+                
+                # 표로 예쁘게 출력
+                calc_table = pd.DataFrame(calc_data)
+                
+                # 2열로 나눠서 보여주기 (공간 절약)
+                c1, c2 = st.columns(2)
+                mid = len(calc_table) // 2
+                with c1:
+                    st.table(calc_table.iloc[:mid].set_index("비율 (%)"))
+                with c2:
+                    st.table(calc_table.iloc[mid:].set_index("비율 (%)")
+                             
         with tab2:
             unique_ex = sorted(my_data['exercise'].unique())
             cols = st.columns(2)
