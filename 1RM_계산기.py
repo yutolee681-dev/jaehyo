@@ -172,12 +172,12 @@ if not df.empty and 'exercise' in df.columns:
 st.divider()
 
 # --- 5. 실시간 응원 한마디 ---
-st.subheader("💬 하고싶은 말!!")
+st.subheader("💬 실시간 응원 한마디")
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
-            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="예) 재효님 클린 ㅎㄷㄷ🔥")
+            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="오늘 컨디션 최고! 🔥")
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         if submit_comment and new_comment:
@@ -189,27 +189,33 @@ if st.session_state.is_auth:
 
 if not comments_df.empty:
     with st.expander("📂 최근 응원 메시지", expanded=True):
-        # 최신순으로 10개만 가져오기
         display_comments = comments_df.sort_index(ascending=False).head(10)
         
         for idx, row in display_comments.iterrows():
-            # 댓글 내용과 삭제 버튼을 나란히 배치 (비율 5:1)
             c_col, d_col = st.columns([5, 1])
             
             with c_col:
-                st.markdown(f"**{row['name']}** ({row['date']}): {row['comment']}")
+                # [디자인 변경] 작성자와 내용을 분리하여 출력
+                st.markdown(f"""
+                    <div style="margin-bottom: 5px;">
+                        <span style="font-weight: bold; color: #29b5e8; font-size: 0.9rem;">{row['name']}</span> 
+                        <span style="color: gray; font-size: 0.7rem; margin-left: 5px;">{row['date']}</span>
+                    </div>
+                    <div style="font-size: 1rem; margin-bottom: 10px; line-height: 1.4;">
+                        {row['comment']}
+                    </div>
+                """, unsafe_allow_html=True)
             
-            # [핵심] 로그인한 본인의 댓글일 때만 삭제 버튼 표시
+            # 본인 댓글일 때만 삭제 버튼
             if st.session_state.is_auth and row['name'] == st.session_state.user_name:
                 with d_col:
-                    # 버튼의 key를 인덱스(idx)를 이용해 고유하게 설정
                     if st.button("🗑️", key=f"del_msg_{idx}"):
-                        # 전체 comments_df에서 해당 인덱스 삭제
                         new_comments_df = comments_df.drop(idx)
                         if save_to_gsheet(new_comments_df, "comments"):
                             st.warning("삭제됨")
                             time.sleep(0.5)
                             st.rerun()
+            st.divider()
 
 # --- 6. 사용자 인증 ---
 if not st.session_state.is_auth:
