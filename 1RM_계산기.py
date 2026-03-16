@@ -247,18 +247,34 @@ if st.session_state.is_auth:
                         b_col1, b_col2 = st.columns(2)
                         with b_col1:
                             if st.button("💾 수정 저장", key=f"sv_{idx}", use_container_width=True):
+                                # 수정된 데이터 반영
                                 df.at[idx, 'weight'] = new_w
                                 df.at[idx, 'memo'] = new_m
-                                conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=df)
-                                st.success("수정 완료!")
-                                time.sleep(0.5); st.rerun()
+                                
+                                # [수정] 데이터 저장 로직 강화
+                                # gsheets 라이브러리가 헷갈리지 않게 ID와 시트 이름을 정확히 명시
+                                conn.update(
+                                    spreadsheet=SHEET_ID,  # URL 대신 ID 사용
+                                    worksheet="Sheet1", 
+                                    data=df
+                                )
+                                st.success("수정 완료! 🔄")
+                                time.sleep(0.5)
+                                st.rerun()
                         
                         with b_col2:
                             if st.button("🗑️ 기록 삭제", key=f"dc_{idx}", use_container_width=True):
+                                # 해당 행 삭제 후 인덱스 초기화 없이 원본 df 업데이트
                                 final_df = df.drop(idx)
-                                conn.update(spreadsheet=SHEET_URL, worksheet="Sheet1", data=final_df)
-                                st.warning("삭제됨")
-                                time.sleep(0.5); st.rerun()
+                                
+                                conn.update(
+                                    spreadsheet=SHEET_ID, 
+                                    worksheet="Sheet1", 
+                                    data=final_df
+                                )
+                                st.warning("기록이 삭제되었습니다.")
+                                time.sleep(0.5)
+                                st.rerun()
             else:
                 st.info("해당 종목의 기록이 없습니다.")
     st.divider()
