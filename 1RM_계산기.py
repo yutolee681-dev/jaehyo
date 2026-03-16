@@ -36,35 +36,41 @@ rename_map = {
     "Overhead Squat": "OHS"
 }
 
-# --- 2. 데이터 로드 및 저장 함수 (핵심) ---
+# --- 2. 데이터 로드 및 저장 함수 (KeyError 및 저장 에러 방지) ---
 SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
-SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
 
 def get_data_via_csv(worksheet_name="Sheet1"):
     try:
         cb = int(time.time())
         url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={worksheet_name}&cb={cb}"
         data = pd.read_csv(url).fillna("")
-        data.columns = [c.lower().strip() for c in data.columns]
         
+        # 1. 컬럼명을 무조건 소문자/공백제거로 표준화
+        data.columns = [str(c).lower().strip() for c in data.columns]
+        
+        # 2. 필수 컬럼이 없거나 데이터가 비어있으면 빈 틀을 반환 (KeyError 방지)
+        required_cols = ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo']
+        if 'name' not in data.columns or data.empty:
+            return pd.DataFrame(columns=required_cols)
+
+        # 3. 비밀번호 포맷 정리 (따옴표 제거 및 소수점 제거)
         if 'password' in data.columns:
             def clean_pw(val):
                 s = str(val).replace("'", "").strip()
                 if s.endswith('.0'): s = s[:-2]
                 return s
             data['password'] = data['password'].apply(clean_pw)
+            
         return data
     except Exception as e:
-        st.error(f"로드 실패: {e}")
-        return pd.DataFrame()
+        # 로드 실패 시에도 앱이 안 죽게 빈 틀 반환
+        return pd.DataFrame(columns=['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'])
 
-# [중요] 에러 없는 직접 저장 함수
 def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
     try:
         # Secrets에서 [gsheets] 정보를 바로 가져옵니다.
         creds_info = st.secrets["gsheets"]
 
-        # gspread 인증용 데이터 정리
         credentials_dict = {
             "type": creds_info["type"],
             "project_id": creds_info["project_id"],
@@ -83,13 +89,20 @@ def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
         client = gspread.authorize(credentials)
         
         sh = client.open_by_key(SHEET_ID)
-        worksheet = sh.worksheet(worksheet_name)
+        
+        # 워크시트 없으면 에러 안나게 체크
+        try:
+            worksheet = sh.worksheet(worksheet_name)
+        except gspread.WorksheetNotFound:
+            worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
         
         dataframe = dataframe.fillna("")
+        # 헤더를 포함하여 전체 데이터를 리스트로 변환
         data_to_save = [dataframe.columns.values.tolist()] + dataframe.astype(str).values.tolist()
         
         worksheet.clear()
-        worksheet.update(data_to_save)
+        # 전체 범위(A1부터)에 업데이트
+        worksheet.update(values=data_to_save, range_name='A1')
         return True
     except Exception as e:
         st.error(f"저장 실패! 다시 확인해 주세요: {e}")
