@@ -136,9 +136,18 @@ if not st.session_state.is_auth:
             if st.button("로그인", use_container_width=True):
                 user_rows = df[df['name'].astype(str) == selected_name]
                 if not user_rows.empty:
+                    # --- 141라인 근처: 비밀번호 검증 로직 수정 ---
                     raw_pw = user_rows.iloc[-1]['password']
-                    # 숫자/문자 혼합 대응 로직
-                    correct = str(int(float(raw_pw))) if isinstance(raw_pw, (float, int)) else str(raw_pw).replace("'", "").strip()
+                    
+                    # [수정] 어떤 기상천외한 데이터가 들어와도 에러 안 나는 로직
+                    if pd.isna(raw_pw): # 시트가 비어있는 경우
+                        correct = ""
+                    try:
+                        # 숫자인 경우(1234, 1234.0 등) 소수점 떼고 문자로 변환
+                        correct = str(int(float(raw_pw)))
+                    except (ValueError, TypeError):
+                        # 문자인 경우('abc', '1234!') 그대로 문자열 처리
+                        correct = str(raw_pw).replace("'", "").strip()
                     
                     if pw_input.strip() == correct:
                         st.session_state.update({'is_auth': True, 'user_name': selected_name, 'user_gender': user_rows.iloc[-1]['gender']})
