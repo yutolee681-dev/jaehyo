@@ -60,39 +60,47 @@ def get_data_via_csv(worksheet_name="Sheet1"):
 # [중요] 에러 없는 직접 저장 함수
 def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
     try:
-        # [수정 포인트] Secrets에서 정보를 가져오는 경로를 유연하게 설정
+        # 1. Secrets에서 인증 정보 찾기 (강력한 매칭 로직)
+        creds_info = None
+        
+        # 시도 1: 표준 계층 구조 [connections][gsheets]
         if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
             creds_info = st.secrets["connections"]["gsheets"]
+        # 시도 2: 단일 키 구조 [connections.gsheets]
+        elif "connections.gsheets" in st.secrets:
+            creds_info = st.secrets["connections.gsheets"]
+        # 시도 3: [gsheets] 바로 아래에 있는 경우
         elif "gsheets" in st.secrets:
             creds_info = st.secrets["gsheets"]
-        else:
-            st.error("Secrets 설정에서 [connections.gsheets] 또는 [gsheets]를 찾을 수 없습니다.")
+            
+        if creds_info is None:
+            st.error("Secrets 설정 오류: [connections.gsheets] 섹션을 찾을 수 없습니다. Streamlit 설정 창의 Secrets 내용을 확인해 주세요.")
             return False
 
-        # gspread 인증을 위한 딕셔너리 구성 (직접 매핑)
-        # secrets.toml에 있는 키 이름들을 gspread가 기대하는 형식으로 맞춰줍니다.
+        # 2. gspread 인증용 딕셔너리 생성
+        # TOML에서 문자열로 들어오는 데이터를 gspread가 인식할 수 있게 정리
         credentials_dict = {
-            "type": creds_info["type"],
-            "project_id": creds_info["project_id"],
-            "private_key_id": creds_info["private_key_id"],
-            "private_key": creds_info["private_key"].replace("\\n", "\n"), # 줄바꿈 처리
-            "client_email": creds_info["client_email"],
-            "client_id": creds_info["client_id"],
-            "auth_uri": creds_info["auth_uri"],
-            "token_uri": creds_info["token_uri"],
-            "auth_provider_x509_cert_url": creds_info["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": creds_info["client_x509_cert_url"],
+            "type": creds_info.get("type"),
+            "project_id": creds_info.get("project_id"),
+            "private_key_id": creds_info.get("private_key_id"),
+            "private_key": creds_info.get("private_key").replace("\\n", "\n"),
+            "client_email": creds_info.get("client_email"),
+            "client_id": creds_info.get("client_id"),
+            "auth_uri": creds_info.get("auth_uri"),
+            "token_uri": creds_info.get("token_uri"),
+            "auth_provider_x509_cert_url": creds_info.get("auth_provider_x509_cert_url"),
+            "client_x509_cert_url": creds_info.get("client_x509_cert_url"),
         }
 
         scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         credentials = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
         client = gspread.authorize(credentials)
         
-        # 시트 열기 및 업데이트
+        # 3. 시트 업데이트
         sh = client.open_by_key(SHEET_ID)
         worksheet = sh.worksheet(worksheet_name)
         
-        # 데이터프레임 전처리: NaN은 빈 문자열로, 모든 데이터를 리스트로
+        # 데이터프레임 정리 (NaN 제거 및 리스트 변환)
         dataframe = dataframe.fillna("")
         data_to_save = [dataframe.columns.values.tolist()] + dataframe.values.tolist()
         
@@ -100,7 +108,7 @@ def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
         worksheet.update(data_to_save)
         return True
     except Exception as e:
-        st.error(f"구글 시트 접근 에러: {e}")
+        st.error(f"구글 시트 연동 실패: {e}")
         return False
 
 # 데이터 로드
