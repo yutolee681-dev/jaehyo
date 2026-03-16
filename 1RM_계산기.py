@@ -27,23 +27,19 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_full_data():
     try:
-        # [핵심 변경] CSV 직접 호출 방식으로 404 방지
-        csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Sheet1"
+        # 끝에 &cachebust=... 를 붙여서 구글이 강제로 새 데이터를 주게 만듭니다
+        timestamp = int(time.time())
+        csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Sheet1&cb={timestamp}"
         raw_df = pd.read_csv(csv_url)
         
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
-        # 컬럼 보정 및 기본값 채우기
-        required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
-        for col, default in required_cols.items():
-            if col not in raw_df.columns:
-                raw_df[col] = default
+        # 컬럼명 소문자 변환 및 공백 제거 (혹시 모를 에러 방지)
+        raw_df.columns = [c.lower().strip() for c in raw_df.columns]
         return raw_df
     except Exception as e:
-        # 실패 시 라이브러리 방식 재시도
-        try: return conn.read(spreadsheet=SHEET_URL, worksheet="Sheet1", ttl=0)
-        except: return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
+        return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
 def get_comments():
     try:
