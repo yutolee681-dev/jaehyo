@@ -34,29 +34,24 @@ rename_map = {
 
 # 2. 구글 시트 연결
 conn = st.connection("gsheets", type=GSheetsConnection)
-# 변경 후
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
-
-SHEET_ID = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
 def get_full_data():
     try:
         raw_df = conn.read(
+            spreadsheet=SHEET_URL,  # <--- 이 부분이 빠져있었습니다!
             worksheet="Sheet1",
             ttl=0
         )
-
+        # ... (이하 동일)
         if raw_df is None or raw_df.empty:
             return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
-
+        
         required_cols = {'password': '0000', 'gender': '남성', 'memo': ''}
-
         for col, default in required_cols.items():
             if col not in raw_df.columns:
                 raw_df[col] = default
-
         return raw_df
-
     except Exception as e:
         st.error(f"GSheets read error: {e}")
         return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
@@ -64,15 +59,13 @@ def get_full_data():
 def get_comments():
     try:
         c_df = conn.read(
+            spreadsheet=SHEET_URL,  # <--- 여기도 추가해주세요!
             worksheet="comments",
             ttl=0
         )
-
         if c_df is None:
             return pd.DataFrame(columns=['name','comment','date'])
-
         return c_df
-
     except Exception as e:
         st.error(f"GSheets comment error: {e}")
         return pd.DataFrame(columns=['name','comment','date'])
