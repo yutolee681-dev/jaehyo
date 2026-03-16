@@ -31,7 +31,7 @@ rename_map = {
 
 # --- 2. 구글 시트 연결 설정 (핵심 수정 부분) ---
 # URL 끝에 /edit#gid=0 등을 지우고 ID까지만 입력하는 것이 가장 안전합니다.
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
+SHEET_URL = "1ekqS81gko96DVkrFsBkg2-bQiF3oAcHkXd02oHJQ1R4"
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
