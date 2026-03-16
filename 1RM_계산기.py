@@ -172,12 +172,12 @@ if not df.empty and 'exercise' in df.columns:
 st.divider()
 
 # --- 5. 실시간 응원 한마디 ---
-st.subheader("💬 실시간 응원 한마디")
+st.subheader("💬 하고싶은 말!!")
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         col_c1, col_c2 = st.columns([4, 1])
         with col_c1:
-            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="오늘 컨디션 최고! 🔥")
+            new_comment = st.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="예) 재효님 클린 ㅎㄷㄷ🔥")
         with col_c2:
             submit_comment = st.form_submit_button("등록")
         if submit_comment and new_comment:
