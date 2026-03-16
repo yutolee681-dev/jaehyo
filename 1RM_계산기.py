@@ -124,7 +124,7 @@ if st.session_state.is_auth:
     st.divider()
 
 # --- 4. 실시간 전체 랭킹 ---
-st.subheader("🏆 박스 실시간 랭킹 (전체)")
+st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_exercise = st.selectbox("랭킹 종목 선택", exercise_list, index=0)
 
 if not df.empty and 'exercise' in df.columns:
@@ -141,10 +141,30 @@ if not df.empty and 'exercise' in df.columns:
             html_code = """<table style="width:100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed;">
                            <thead><tr style="border-bottom: 1px solid #444;"><th style="text-align: left; padding: 5px;">♂️ Male</th>
                            <th style="text-align: left; padding: 5px;">♀️ Female</th></tr></thead><tbody>"""
+            
             for i in range(max_rows):
-                m_col = f"<td>{get_ordinal(i+1)} {m_data.iloc[i]['name']} <b>{m_data.iloc[i]['weight']}</b></td>" if i < len(m_data) else "<td>-</td>"
-                f_col = f"<td>{get_ordinal(i+1)} {f_data.iloc[i]['name']} <b>{f_data.iloc[i]['weight']}</b></td>" if i < len(f_data) else "<td>-</td>"
+                # 남성 데이터 처리
+                if i < len(m_data):
+                    m_row = m_data.iloc[i]
+                    # [수정] 본인인 경우 배경색과 굵게 처리
+                    is_me_m = st.session_state.is_auth and m_row['name'] == st.session_state.user_name
+                    style_m = 'background-color: rgba(41, 181, 232, 0.3); font-weight: bold;' if is_me_m else ''
+                    m_col = f"<td style='{style_m} padding: 5px;'>{get_ordinal(i+1)} {m_row['name']} <b>{m_row['weight']}</b></td>"
+                else:
+                    m_col = "<td>-</td>"
+
+                # 여성 데이터 처리
+                if i < len(f_data):
+                    f_row = f_data.iloc[i]
+                    # [수정] 본인인 경우 배경색과 굵게 처리
+                    is_me_f = st.session_state.is_auth and f_row['name'] == st.session_state.user_name
+                    style_f = 'background-color: rgba(255, 75, 75, 0.2); font-weight: bold;' if is_me_f else ''
+                    f_col = f"<td style='{style_f} padding: 5px;'>{get_ordinal(i+1)} {f_row['name']} <b>{f_row['weight']}</b></td>"
+                else:
+                    f_col = "<td>-</td>"
+                
                 html_code += f"<tr>{m_col}{f_col}</tr>"
+            
             html_code += "</tbody></table>"
             st.markdown(html_code, unsafe_allow_html=True)
         else:
