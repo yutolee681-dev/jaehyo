@@ -121,51 +121,24 @@ if not comments_df.empty:
 
 st.divider()
 
-# --- 6. 사용자 인증 (캐시 무시 및 정확한 값 추출 버전) ---
-if not st.session_state.is_auth:
-    st.subheader("👤 사용자 인증")
-    
-    # [중요] 로그인 창 위에 강제 새로고침 버튼 하나 더 두기
-    if st.button("🔄 데이터 최신화 (로그인 안 될 때 클릭)"):
-        st.cache_data.clear()
-        st.rerun()
-
-    input_mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
-    
-    if input_mode == "기존 사용자":
-        # 이름 목록 추출 시 데이터 타입 강제 및 공백 제거
-        user_list = sorted(df['name'].dropna().astype(str).str.strip().unique().tolist()) if not df.empty else []
-        selected_name = st.selectbox("이름 선택", options=user_list, index=None, placeholder="이름을 선택하세요")
+def get_full_data():
+    try:
+        # [핵심] 캐시 파괴를 위한 타임스탬프 추가
+        import time
+        cb = int(time.time())
+        csv_url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Sheet1&cb={cb}"
         
-        if selected_name:
-            pw_input = st.text_input("비밀번호", type="password")
-            if st.button("로그인", use_container_width=True):
-                # 해당 이름의 모든 행을 가져온 뒤 가장 마지막 행 선택
-                user_rows = df[df['name'].astype(str).str.strip() == selected_name]
-                
-                if not user_rows.empty:
-                    # 마지막 행의 password 값을 가져와서 정제
-                    target_row = user_rows.iloc[-1]
-                    raw_val = target_row['password']
-                    
-                    # 5207.0 -> 5207 변환 로직
-                    try:
-                        clean_sheet_pw = str(int(float(str(raw_val).replace("'", "").strip())))
-                    except:
-                        clean_sheet_pw = str(raw_val).replace("'", "").strip()
-                    
-                    if pw_input.strip() == clean_sheet_pw:
-                        st.session_state.update({
-                            'is_auth': True, 
-                            'user_name': selected_name, 
-                            'user_gender': target_row['gender']
-                        })
-                        st.success("로그인 성공!")
-                        time.sleep(0.5); st.rerun()
-                    else:
-                        st.error(f"비밀번호가 틀렸습니다. (시트에서 읽은 값: {clean_sheet_pw})")
-                else:
-                    st.error("사용자를 찾을 수 없습니다.")
+        # 데이터를 읽어올 때 모든 값을 문자열로 읽고, 빈 값(NaN)을 빈 글자("")로 바꿉니다.
+        raw_df = pd.read_csv(csv_url).fillna("")
+        
+        if raw_df.empty:
+            return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
+
+        # 컬럼명 정리
+        raw_df.columns = [c.lower().strip() for c in raw_df.columns]
+        return raw_df
+    except Exception:
+        return pd.DataFrame(columns=['name','exercise','weight','date','password','gender','memo'])
 
 
 # --- 7 & 8. 개인 분석 및 데이터 입력 (로그인 후) ---
