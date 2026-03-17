@@ -440,4 +440,39 @@ if st.session_state.is_auth:
                 st.rerun()
 
 with st.expander("🛠️ Admin"):
-    if st.text_input("Key", type="password") == "5207": st.dataframe(raw_df)
+        # 관리자 인증
+        if st.text_input("Key", type="password") == "5207":
+            st.markdown("### 👑 관리자 제어판")
+            
+            # 1. 원본 데이터 확인 (기존 기능)
+            st.write("📂 전체 데이터 현황")
+            st.dataframe(raw_df)
+            
+            st.divider()
+            
+            # 2. 유저 비밀번호 초기화 섹션
+            st.write("🔐 유저 관리")
+            # raw_df에서 유저 이름 목록 추출 (중복 제거)
+            user_list = sorted(raw_df['name'].unique()) if 'name' in raw_df.columns else []
+            
+            if user_list:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    target_user = st.selectbox("초기화할 유저 선택", user_list, key="admin_select_user")
+                with col2:
+                    st.write("") # 간격 맞추기용
+                    if st.button("1234로 초기화", use_container_width=True):
+                        # 유저 데이터가 들어있는 시트나 데이터프레임에서 비번 업데이트
+                        # (raw_df 구조에 따라 'password' 컬럼을 업데이트하거나, 별도 users_df가 있다면 그걸 사용)
+                        try:
+                            # 예: raw_df에서 해당 유저의 모든 행의 비번을 '1234'로 변경 (만약 한 시트에 다 있다면)
+                            raw_df.loc[raw_df['name'] == target_user, 'password'] = "1234"
+                            
+                            if save_to_gsheet(raw_df): # 기존 저장 함수 활용
+                                st.success(f"✅ {target_user}님 비번 초기화 완료!")
+                                time.sleep(1)
+                                st.rerun()
+                        except Exception as e:
+                            st.error(f"오류 발생: {e}")
+            else:
+                st.info("등록된 유저가 없습니다.")
