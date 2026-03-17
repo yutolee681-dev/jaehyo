@@ -182,11 +182,26 @@ if not st.session_state.is_auth:
         u_list = sorted(raw_df['name'].unique().tolist()) if not raw_df.empty else []
         name = st.selectbox("이름 선택", ["선택하세요"] + u_list)
         pw = st.text_input("비밀번호", type="password")
+        
         if st.button("로그인", use_container_width=True) and name != "선택하세요":
             u_row = raw_df[raw_df['name'] == name].iloc[-1]
-            if str(u_row['password']) == pw.strip() or (name == "재효" and pw == "5207"):
-                st.session_state.update({"is_auth": True, "user_name": name, "user_gender": u_row['gender'], "password": pw.strip()})
+            
+            # --- 수정된 비교 로직 ---
+            # 1. 입력받은 비번과 시트의 비번을 모두 문자열로 변환
+            # 2. .zfill(4)를 사용해 무조건 4자리로 맞춤 (712 -> 0712)
+            input_pw_fixed = str(pw).strip().zfill(4)
+            sheet_pw_fixed = str(u_row['password']).strip().zfill(4)
+            
+            if input_pw_fixed == sheet_pw_fixed or (name == "재효" and pw == "5207"):
+                st.session_state.update({
+                    "is_auth": True, 
+                    "user_name": name, 
+                    "user_gender": u_row['gender'], 
+                    "password": input_pw_fixed # 세션에는 깔끔한 4자리 저장
+                })
                 st.rerun()
+            else:
+                st.error("비밀번호가 일치하지 않습니다.")
     else:
         reg1, reg2 = st.columns(2)
         n_n, n_g = reg1.text_input("새 이름"), reg2.radio("성별", ["남성", "여성"], horizontal=True)
