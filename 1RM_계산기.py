@@ -646,10 +646,15 @@ if st.session_state.is_auth:
                     time.sleep(1)
                     st.rerun()
 
-with st.expander("🛠️ Admin"):
+# --- 9. Admin 제어판 (권한 분리형) ---
+st.divider()
+
+# 다른 섹션들과 통일된 크기 (### 레벨)
+st.markdown("### 🛠️ Admin 제어판")
+
+with st.expander("클릭해서 관리자 기능 열기", expanded=False):
     # 1. 권한 확인 로직
-    # 이미 '재효'나 '윤아'로 로그인했다면 Key 없이 통과, 아니면 Key(5207) 입력 필요
-    admin_pw = st.text_input("Key", type="password", key="admin_key_input")
+    admin_pw = st.text_input("Key", type="password", key="admin_key_final", help="슈퍼 관리자 혹은 코치 키를 입력하세요.")
     
     current_user = st.session_state.get("user_name", "")
     is_super = (current_user == "재효") or (admin_pw == "5207")
@@ -657,69 +662,74 @@ with st.expander("🛠️ Admin"):
     
     # 두 권한 중 하나라도 있으면 진입 허용
     if is_super or is_coach:
-        st.markdown(f"### 👑 {'슈퍼 관리자' if is_super else '코치'} 제어판")
+        role_name = "👑 슈퍼 관리자" if is_super else "📋 코치"
+        st.markdown(f"#### {role_name} 권한으로 접속 중")
         
-        # --- [공통 권한] 📢 훈련 공지 관리 섹션 ---
-        st.divider()
-        st.subheader("📢 훈련 공지 관리")
+        # --- [공통 권한] 📢 훈련 공지 관리 탭 ---
+        admin_tab1, admin_tab2 = st.tabs(["📢 훈련 공지 관리", "⚙️ 시스템 관리"]) if is_super else ([st.empty()], [st.empty()])
         
-        today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
-        today_wod = wod_df[wod_df['date'] == today_str] if not wod_df.empty else pd.DataFrame()
+        # 탭을 쓰지 않는 코치 권한을 위해 분기 처리
+        current_tab = admin_tab1 if is_super else st.container()
         
-        with st.form("wod_manage_form"):
-            default_title = today_wod.iloc[0]['workout'] if not today_wod.empty else ""
-            default_desc = today_wod.iloc[0]['description'] if not today_wod.empty else ""
+        with current_tab:
+            st.markdown("##### 오늘의 훈련 공지 (WOD)")
+            today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
+            today_wod = wod_df[wod_df['date'] == today_str] if not wod_df.empty else pd.DataFrame()
             
-            input_title = st.text_input("제목", value=default_title, placeholder="예: 오늘의 스트렝스 & 보조운동")
-            input_desc = st.text_area("내용", value=default_desc, height=200, placeholder="훈련 내용을 상세히 적어주세요.")
-            
-            col_save, col_del = st.columns(2)
-            with col_save:
-                if st.form_submit_button("✅ 공지 저장/업데이트", use_container_width=True):
+            with st.form("wod_manage_form_final"):
+                default_title = today_wod.iloc[0]['workout'] if not today_wod.empty else ""
+                default_desc = today_wod.iloc[0]['description'] if not today_wod.empty else ""
+                
+                input_title = st.text_input("제목", value=default_title, placeholder="예: 오늘의 스트렝스 & 보조운동")
+                input_desc = st.text_area("내용", value=default_desc, height=200, placeholder="훈련 내용을 상세히 적어주세요.")
+                
+                col_save, col_del = st.columns(2)
+                if col_save.form_submit_button("✅ 공지 저장/업데이트", use_container_width=True):
                     if input_title:
                         new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
                         other_days = wod_df[wod_df['date'] != today_str] if not wod_df.empty else pd.DataFrame()
                         final_df = pd.concat([other_days, new_entry], ignore_index=True)
                         if save_to_gsheet(final_df, "today_wod"):
-                            st.success("공지가 저장되었습니다!")
+                            st.cache_data.clear()
+                            st.success("공지가 성공적으로 저장되었습니다!")
                             time.sleep(1)
                             st.rerun()
-            with col_del:
-                if st.form_submit_button("🗑️ 오늘 공지 삭제", use_container_width=True):
+                            
+                if col_del.form_submit_button("🗑️ 오늘 공지 삭제", use_container_width=True):
                     if not today_wod.empty:
                         final_df = wod_df[wod_df['date'] != today_str]
                         if save_to_gsheet(final_df, "today_wod"):
+                            st.cache_data.clear()
                             st.warning("오늘의 공지가 삭제되었습니다.")
                             time.sleep(1)
                             st.rerun()
 
-        # --- [슈퍼 관리자 전용] 유저 관리 및 데이터 확인 섹션 ---
+        # --- [슈퍼 관리자 전용] 시스템 관리 탭 ---
         if is_super:
-            st.divider()
-            st.subheader("⚙️ 시스템 관리 (Super Admin)")
-            
-            # 1. 전체 기록 데이터 조회
-            st.write("📂 전체 기록 데이터")
-            st.dataframe(raw_df)
-            
-            st.divider()
-            
-            # 2. 유저 비밀번호 초기화
-            st.write("🔐 유저 비번 초기화")
-            user_list = sorted(raw_df['name'].unique()) if 'name' in raw_df.columns else []
-            if user_list:
-                c1, c2 = st.columns([2, 1])
-                target = c1.selectbox("유저 선택", user_list, key="admin_u_reset")
-                if c2.button("1234 초기화", key="btn_reset"):
-                    raw_df.loc[raw_df['name'] == target, 'password'] = "'1234"
-                    if save_to_gsheet(raw_df):
-                        st.success(f"✅ {target}님 초기화 완료")
-                        time.sleep(1)
-                        st.rerun()
+            with admin_tab2:
+                st.markdown("##### 📂 전체 기록 데이터")
+                st.dataframe(raw_df, use_container_width=True)
+                
+                st.divider()
+                st.markdown("##### 🔐 유저 비밀번호 초기화")
+                user_list = sorted(raw_df['name'].unique()) if 'name' in raw_df.columns else []
+                
+                if user_list:
+                    c1, c2 = st.columns([2, 1])
+                    target = c1.selectbox("유저 선택", user_list, key="admin_u_reset_final")
+                    if c2.button("1234 초기화", key="btn_reset_final", use_container_width=True):
+                        # 비번 앞에 '를 붙여 문자열 보존
+                        raw_df.loc[raw_df['name'] == target, 'password'] = "'1234"
+                        if save_to_gsheet(raw_df):
+                            st.cache_data.clear()
+                            st.success(f"✅ {target}님 초기화 완료!")
+                            time.sleep(1)
+                            st.rerun()
         else:
-            # 코치 권한일 때 슈퍼 권한 영역 숨김 안내 (선택사항)
             st.info("💡 코치님은 훈련 공지 작성 권한만 가지고 있습니다.")
 
     else:
         if admin_pw:
-            st.error("접근 권한이 없습니다.")
+            st.error("접근 권한이 없습니다. 관리자 키를 확인해 주세요.")
+        else:
+            st.info("관리자 혹은 코치 권한이 필요한 섹션입니다.")
