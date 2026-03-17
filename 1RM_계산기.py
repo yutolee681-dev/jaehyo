@@ -395,46 +395,61 @@ st.subheader("🛠️ 관리자 기능")
 # 현재 로그인한 사용자 이름 확인
 current_user = st.session_state.get("user_name", "")
 
-with st.expander("관리자 열기"):
-    admin_pw = st.text_input("Key", type="password")
+# --- Admin 제어판 ---
+st.divider()
+st.subheader("🛠️ 관리자 기능")
+
+current_user = st.session_state.get("user_name", "")
+
+with st.expander("관리자 패널 열기"):
+    admin_pw = st.text_input("Admin Key", type="password", placeholder="재효/윤아 외에는 키 필요")
     
-    # [권한 체크] 재효(슈퍼관리자), 윤아(훈련관리자), 또는 마스터키(5207) 입력 시 진입
+    # [권한 체크 로직]
     is_super_admin = (current_user == "재효") or (admin_pw == "5207")
     is_training_admin = (current_user == "윤아")
 
     if is_super_admin or is_training_admin:
-        # 슈퍼관리자는 모든 탭을 보고, 윤아님은 공지 관리 탭만 보이도록 구성
+        # 1. 탭 구성: 슈퍼관리자(재효)는 2개, 훈련관리자(윤아)는 1개만 노출
         if is_super_admin:
-            admin_tab1, admin_tab2 = st.tabs(["📢 공지 관리", "⚙️ 시스템"])
+            admin_tab1, admin_tab2 = st.tabs(["📢 훈련 공지 관리", "⚙️ 시스템 관리"])
         else:
-            admin_tab1 = st.tabs(["📢 공지 관리"])[0]  # 윤아님은 공지 탭만 생성
+            admin_tab1 = st.tabs(["📢 훈련 공지 관리"])[0]
 
-        # 1. 공지 관리 (재효 & 윤아 공통)
+        # --- 탭 1: 공지 관리 (재효 & 윤아 공용) ---
         with admin_tab1:
-            st.info(f"📍 {current_user}님, 훈련 공지를 작성해주세요.")
+            st.info(f"📍 {current_user}님, 훈련 공지를 작성/수정해주세요.")
+            
+            # 오늘 날짜 기존 공지 불러오기
+            existing_today_wod = wod_df[wod_df['date'] == today_str]
+            default_title = existing_today_wod.iloc[0]['workout'] if not existing_today_wod.empty else ""
+            default_desc = existing_today_wod.iloc[0]['description'] if not existing_today_wod.empty else ""
+            
+            if not existing_today_wod.empty:
+                st.caption("✅ 오늘 작성된 공지가 있습니다. 수정 후 저장하세요.")
+
             with st.form("wod_form"):
-                input_title = st.text_input("제목 (예: 오늘의 WOD)")
-                input_desc = st.text_area("내용")
-                if st.form_submit_button("✅ 공지 저장"):
+                input_title = st.text_input("제목 (예: 오늘의 WOD)", value=default_title)
+                input_desc = st.text_area("내용", value=default_desc, height=200)
+                
+                if st.form_submit_button("✅ 공지 저장/업데이트"):
                     new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
-                    # 기존 공지 유지하면서 오늘 날짜 업데이트
                     updated_wod = pd.concat([wod_df[wod_df['date'] != today_str], new_entry], ignore_index=True)
+                    
                     if save_to_gsheet(updated_wod, "today_wod"): 
-                        st.success("공지가 등록되었습니다!")
+                        st.success("공지가 업데이트되었습니다!")
+                        time.sleep(1)
                         st.rerun()
 
-        # 2. 시스템 관리 (재효/마스터키 전용 - 윤아 접근 불가)
+        # --- 탭 2: 시스템 관리 (재효/슈퍼관리자 전용) ---
         if is_super_admin:
             with admin_tab2:
-                st.write("👥 전체 회원 관리 및 시스템 설정")
-                st.dataframe(raw_df)
+                st.warning("⚠️ 시스템 관리자 전용 공간입니다.")
+                st.dataframe(raw_df, use_container_width=True)
                 
                 st.divider()
                 st.markdown("#### 🔐 비밀번호 초기화")
-                target = st.selectbox("초기화 대상 유저 선택", sorted(raw_df['name'].unique()))
-                
-                if st.button("선택한 유저 '1234'로 초기화"):
-                    # '0' 누락 방지를 위해 문자열 포맷 유지 (시트 저장 시 중요)
+                target = st.selectbox("초기화 대상 유저", sorted(raw_df['name'].unique()))
+                if st.button("선택 유저 '1234'로 초기화"):
                     raw_df.loc[raw_df['name'] == target, 'password'] = "'1234" 
                     if save_to_gsheet(raw_df): 
                         st.success(f"[{target}]님의 비밀번호가 초기화되었습니다.")
