@@ -201,7 +201,7 @@ if st.session_state.is_auth:
 
     with tab1:
         if not my_data.empty:
-            # 데이터 준비 (종목별 최고 기록)
+            # 1. 데이터 준비 (종목별 최고 기록)
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
             
@@ -227,7 +227,11 @@ if st.session_state.is_auth:
             fig.update_layout(
                 polar=dict(
                     bgcolor='rgba(0,0,0,0)',
-                    radialaxis=dict(visible=True, range=[0, max(radar_values) + 10 if any(radar_values) else 100], gridcolor='#444'),
+                    radialaxis=dict(
+                        visible=True, 
+                        range=[0, max(radar_values) + 10 if any(radar_values) else 100], 
+                        gridcolor='#444'
+                    ),
                     angularaxis=dict(gridcolor='#444', tickfont=dict(color='white', size=11))
                 ),
                 showlegend=False,
@@ -237,11 +241,11 @@ if st.session_state.is_auth:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # --- [2] 세련된 막대 그래프 (숫자 표기 부활!) ---
+            # --- [2] 세련된 막대 그래프 (숫자 표기 완벽 수정) ---
             st.divider()
             st.markdown("### 🏆 종목별 최고 기록")
             
-            # 기본 막대 설정 (색상 그라데이션 적용)
+            # A. 막대 레이어
             bars = alt.Chart(best).mark_bar(
                 cornerRadiusTopRight=5,
                 cornerRadiusBottomRight=5
@@ -251,19 +255,30 @@ if st.session_state.is_auth:
                 color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None)
             )
             
-            # 막대 안쪽에 숫자 텍스트 추가 (여기서 숫자가 다시 생깁니다!)
-            text = bars.mark_text(
-                align='right',      # 오른쪽 정렬
+            # B. 텍스트 레이어 (막대 오른쪽 끝 안쪽 dx=-10 위치)
+            text = alt.Chart(best).mark_text(
+                align='right',      # 오른쪽 기준
                 baseline='middle',
-                dx=-10,             # 막대 끝에서 안쪽으로 10픽셀 이동
-                color='white',      # 배경이 파란색이니 흰색으로
-                fontWeight='bold'
+                dx=-10,             # 안쪽으로 10픽셀 이동
+                color='white',      # 흰색 글자
+                fontWeight='bold',
+                size=13
             ).encode(
-                text=alt.Text('weight:Q', format='.1f') # 소수점 첫째자리까지 표시 (필요시 .0f로 변경 가능)
+                y=alt.Y('ex_short:N', sort='-x'),
+                x=alt.X('weight:Q'),
+                text=alt.Text('weight:Q', format='.0f') # 소수점 없이 정수 표기
             )
             
-            # 막대와 텍스트를 합쳐서 출력
-            st.altair_chart((bars + text).properties(height=400), use_container_width=True)
+            # C. 두 레이어 결합 및 차트 설정
+            bar_chart = alt.layer(bars, text).properties(
+                height=400
+            ).configure_axis(
+                grid=False
+            ).configure_view(
+                strokeWidth=0
+            )
+            
+            st.altair_chart(bar_chart, use_container_width=True)
 
             # --- [3] 1RM 비율표 ---
             st.divider()
@@ -276,7 +291,7 @@ if st.session_state.is_auth:
             st.table(pd.DataFrame(per_data).set_index("Percentage"))
 
         else:
-            st.info("기록이 없습니다. 아래에서 오늘의 기록을 먼저 업데이트해보세요! 💪")
+            st.info("아직 등록된 기록이 없습니다. 아래에서 오늘의 기록을 먼저 업데이트해보세요! 💪")
     
     with tab2:
         if not my_data.empty:
