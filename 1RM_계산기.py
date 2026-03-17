@@ -369,26 +369,54 @@ if st.session_state.is_auth:
             st.info("성장률을 분석할 기록이 아직 부족합니다. 💪")
     with tab3:
         if not my_data.empty:
-            history = my_data.sort_values('date', ascending=False)
+            st.markdown("### 📜 나의 운동 히스토리")
+            
+            # --- 1. 필터 섹션 추가 (기존 코드에 없던 부분) ---
+            c1, c2 = st.columns(2)
+            with c1:
+                unique_exercises = sorted(my_data['exercise'].unique())
+                filter_ex = st.multiselect("종목 선택", options=unique_exercises, default=unique_exercises)
+            with c2:
+                search_query = st.text_input("메모 검색", placeholder="예: 컨디션 좋음")
+
+            # 데이터 필터링 (원본 데이터의 인덱스를 유지해야 수정/삭제가 정확합니다)
+            history = my_data.copy().sort_values('date', ascending=False)
+            history = history[history['exercise'].isin(filter_ex)]
+            if search_query:
+                history = history[history['memo'].str.contains(search_query, na=False)]
+
+            st.divider()
+
+            # --- 2. 히스토리 리스트 (수정/삭제 로직 포함) ---
             for idx, row in history.iterrows():
-                with st.expander(f"📅 {row['date']} | {row['exercise']} | {row['weight']} lbs"):
+                # 원본 데이터(raw_df)에서의 인덱스를 정확히 참조하기 위해 idx 사용
+                with st.expander(f"📅 {row['date']} | **{row['exercise']}** | {row['weight']} lbs"):
+                    
+                    # 수정 입력창
                     new_w = st.number_input("중량 수정", value=float(row['weight']), key=f"edit_w_{idx}")
                     new_m = st.text_input("메모 수정", value=str(row['memo']), key=f"edit_m_{idx}")
+                    
                     b1, b2 = st.columns(2)
                     
+                    # [💾 저장 버튼]
                     if b1.button("💾 저장", key=f"save_{idx}", use_container_width=True):
                         raw_df.loc[idx, 'weight'] = new_w
                         raw_df.loc[idx, 'memo'] = new_m
                         if save_to_gsheet(raw_df):
-                            st.success(f"{row['exercise']} 수정 완료! 🔥") # 알림 추가
-                            time.sleep(1) # 메시지 볼 시간 확보
-                            st.rerun()
-                            
-                    if b2.button("🗑️ 삭제", key=f"del_rec_{idx}", use_container_width=True):
-                        if save_to_gsheet(raw_df.drop(idx)):
-                            st.warning(f"{row['exercise']} 기록 삭제 완료 🗑️") # 알림 추가
+                            st.success(f"[{row['exercise']}] 기록이 수정되었습니다! 🔥")
                             time.sleep(1)
                             st.rerun()
+                            
+                    # [🗑️ 삭제 버튼] - 확인 절차를 살짝 넣어 안전하게
+                    if b2.button("🗑️ 삭제", key=f"del_rec_{idx}", use_container_width=True):
+                        # drop(idx)를 통해 해당 행을 지우고 시트에 저장
+                        updated_df = raw_df.drop(idx)
+                        if save_to_gsheet(updated_df):
+                            st.warning(f"[{row['exercise']}] 기록이 삭제되었습니다. 🗑️")
+                            time.sleep(1)
+                            st.rerun()
+        else:
+            st.info("관리할 기록이 아직 없습니다. 첫 운동을 기록해보세요! 💪")
 
     # --- 8. 기록 업데이트 (기존 중량 자동 로드) ---
     st.divider()
