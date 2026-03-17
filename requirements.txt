@@ -6,3 +6,4 @@ pandas
 altair
 gspread
 google-auth
+plotly
