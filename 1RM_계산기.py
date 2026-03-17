@@ -238,16 +238,43 @@ if st.session_state.is_auth:
         if not my_data.empty:
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
+            
             st.markdown("### 🧬 나의 스트렝스 밸런스")
+            # ... (레이더 차트 코드는 그대로 유지) ...
             radar_labels = ["Back Squat", "Deadlift", "Shoulder Press", "Thruster", "Power Clean", "Power Snatch"]
             radar_values = [best[best['exercise'] == ex]['weight'].max() if not best[best['exercise'] == ex].empty else 0 for ex in radar_labels]
             fig = go.Figure(go.Scatterpolar(r=radar_values + [radar_values[0]], theta=radar_labels + [radar_labels[0]], fill='toself', fillcolor='rgba(41, 181, 232, 0.4)', line=dict(color='#29b5e8', width=3)))
             fig.update_layout(polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, max(radar_values) + 10 if any(radar_values) else 100], gridcolor='#444', showticklabels=False)), paper_bgcolor='rgba(0,0,0,0)', height=350, margin=dict(l=60, r=60, t=20, b=20))
             st.plotly_chart(fig, use_container_width=True)
             
-            bars = alt.Chart(best).mark_bar(cornerRadiusTopRight=5).encode(y=alt.Y('ex_short:N', sort='-x', title=None), x=alt.X('weight:Q', title="Weight (lbs)"), color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None))
-            st.altair_chart(bars.properties(height=400), use_container_width=True)
+            # --- [여기서부터 수정: 막대그래프 + 숫자 넣기] ---
+            # 1. 기본 막대 레이어
+            bars = alt.Chart(best).mark_bar(
+                cornerRadiusTopRight=5,
+                cornerRadiusBottomRight=5
+            ).encode(
+                y=alt.Y('ex_short:N', sort='-x', title=None),
+                x=alt.X('weight:Q', title="Weight (lbs)"),
+                color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None)
+            )
 
+            # 2. 숫자 텍스트 레이어 (막대 안쪽에 배치)
+            text = alt.Chart(best).mark_text(
+                align='right',      # 오른쪽 정렬
+                baseline='middle',
+                dx=-10,             # 막대 끝에서 안쪽으로 10픽셀 이동
+                color='white',      # 막대 색상이 진하므로 흰색 글씨
+                fontWeight='bold'
+            ).encode(
+                y=alt.Y('ex_short:N', sort='-x'),
+                x=alt.X('weight:Q'),
+                text=alt.Text('weight:Q', format='.0f') # 소수점 없이 표시
+            )
+
+            # 3. 두 레이어를 합쳐서 출력
+            chart_combined = alt.layer(bars, text).properties(height=400)
+            st.altair_chart(chart_combined, use_container_width=True)
+            
             st.markdown("### 📊 1RM 비율표")
             calc_ex = st.selectbox("비율 계산 종목", exercise_list, key="calc_ex_selector")
             ex_best = my_data[my_data['exercise'] == calc_ex]['weight'].max()
