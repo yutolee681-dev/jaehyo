@@ -545,9 +545,12 @@ if st.session_state.is_auth:
         else:
             st.info("아직 기록된 히스토리가 없습니다. 💪")
             
-# --- [추가] 7.5. 훈련 일지 섹션 ---
+    # --- [추가] 7.5. 훈련 일지 섹션 ---
     st.divider()
     st.subheader("📝 나의 훈련 일지")
+    
+    # 🔥 [수정] 일지 섹션 진입 시 최신 일지 데이터를 다시 로드합니다.
+    logs_df = load_data_from_api("training_logs") 
     
     user_name = st.session_state.user_name
     # 오늘 이미 쓴 일지가 있는지 확인
