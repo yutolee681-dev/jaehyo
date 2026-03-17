@@ -266,6 +266,7 @@ if not st.session_state.is_auth:
     st.divider()
     st.subheader("👤 사용자 인증")
     mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
+    
     if mode == "기존 사용자":
         u_list = sorted(raw_df['name'].unique().tolist()) if not raw_df.empty else []
         name = st.selectbox("이름 선택", ["선택하세요"] + u_list)
@@ -275,29 +276,54 @@ if not st.session_state.is_auth:
             u_row = raw_df[raw_df['name'] == name].iloc[-1]
             
             # --- 수정된 비교 로직 ---
-            # 1. 입력받은 비번과 시트의 비번을 모두 문자열로 변환
-            # 2. .zfill(4)를 사용해 무조건 4자리로 맞춤 (712 -> 0712)
             input_pw_fixed = str(pw).strip().zfill(4)
             sheet_pw_fixed = str(u_row['password']).strip().zfill(4)
             
-            if input_pw_fixed == sheet_pw_fixed or (name == "재효" and pw == "5207"):
+            # [수정] 윤아/재효 권한 체크
+            # 1. 시트의 비번이 맞거나 
+            # 2. 관리자 마스터 비번(5207)인 경우 통과
+            if input_pw_fixed == sheet_pw_fixed or pw == "5207":
+                
+                # 글쓰기 권한(can_write) 부여: 이름이 '윤아' 혹은 '재효'인 경우
+                can_write = (name in ["윤아", "재효"])
+                
                 st.session_state.update({
                     "is_auth": True, 
                     "user_name": name, 
                     "user_gender": u_row['gender'], 
-                    "password": input_pw_fixed # 세션에는 깔끔한 4자리 저장
+                    "password": input_pw_fixed,
+                    "can_write": can_write  # 🔥 권한 플래그 추가
                 })
                 st.rerun()
             else:
                 st.error("비밀번호가 일치하지 않습니다.")
+                
     else:
         reg1, reg2 = st.columns(2)
         n_n, n_g = reg1.text_input("새 이름"), reg2.radio("성별", ["남성", "여성"], horizontal=True)
         n_p = st.text_input("비번 설정", type="password")
         if st.button("등록 및 로그인", use_container_width=True) and n_n and n_p:
-            new_u = pd.DataFrame([{"name": n_n, "exercise": "Registration", "weight": 0, "date": datetime.now().strftime("%Y-%m-%d"), "password": f"'{n_p}", "gender": n_g, "memo": "반가워요!"}])
+            new_u = pd.DataFrame([{
+                "name": n_n, 
+                "exercise": "Registration", 
+                "weight": 0, 
+                "date": (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d"), 
+                "password": f"'{n_p}", 
+                "gender": n_g, 
+                "memo": "반가워요!"
+            }])
+            
+            # 신규 가입자도 윤아/재효라면 권한 부여 (혹시 모를 상황 대비)
+            can_write_new = (n_n in ["윤아", "재효"])
+            
             if save_to_gsheet(pd.concat([raw_df, new_u], ignore_index=True)):
-                st.session_state.update({"is_auth": True, "user_name": n_n, "user_gender": n_g, "password": n_p})
+                st.session_state.update({
+                    "is_auth": True, 
+                    "user_name": n_n, 
+                    "user_gender": n_g, 
+                    "password": n_p,
+                    "can_write": can_write_new
+                })
                 st.rerun()
 
 # --- 7. 개인 데이터 분석 (차트, 성장률, 히스토리, 비율표) ---
