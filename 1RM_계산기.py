@@ -116,43 +116,45 @@ if 'is_auth' not in st.session_state:
 
 st.title("🏋️ 1RM을 기억해")
 
-# --- 3. 환영 메시지 및 로그아웃 ---
+# --- 3. 환영 메시지 및 로그아웃 + 비밀번호 변경 ---
 if st.session_state.is_auth:
     col_welcome, col_refresh, col_logout = st.columns([2, 1, 1])
     col_welcome.markdown(f"👋 **{st.session_state.user_name}**님")
-    if col_refresh.button("🔄 갱신", use_container_width=True): st.rerun()
+    
+    if col_refresh.button("🔄 갱신", use_container_width=True): 
+        st.rerun()
     if col_logout.button("로그아웃", use_container_width=True):
         st.session_state.is_auth = False
         st.rerun()
-    st.divider()
-
-# --- 비밀번호 변경 섹션 (로그인한 사용자에게만 노출) ---
-if st.session_state.is_auth:
-    with st.expander("🔐 비밀번호 변경"):
-        # 폼을 사용해서 깔끔하게 입력받음
-        with st.form("pw_change_form", clear_on_submit=True):
-            new_pw = st.text_input("새 비밀번호 (4자리)", type="password", help="숫자 4자리를 권장합니다.")
-            confirm_pw = st.text_input("새 비밀번호 확인", type="password")
+    
+    # 갱신/로그아웃 버튼 바로 아래 비밀번호 변경 배치
+    with st.expander("🔐 비밀번호 변경", expanded=False):
+        # 초기 비번(1234)인 경우 안내 멘트
+        if st.session_state.password == "1234":
+            st.info("현재 초기 비밀번호를 사용 중입니다. 변경을 권장합니다!")
             
-            if st.form_submit_button("변경 내용 저장"):
+        with st.form("pw_change_top", clear_on_submit=True):
+            new_pw = st.text_input("새 비밀번호", type="password", placeholder="숫자 4자리")
+            confirm_pw = st.text_input("비밀번호 확인", type="password")
+            
+            if st.form_submit_button("변경 완료", use_container_width=True):
                 if new_pw != confirm_pw:
-                    st.error("새 비밀번호가 일치하지 않습니다. 다시 확인해 주세요.")
+                    st.error("비밀번호가 일치하지 않습니다.")
                 elif len(new_pw) < 2:
-                    st.warning("비밀번호가 너무 짧습니다.")
+                    st.warning("비밀번호를 입력해 주세요.")
                 else:
-                    # 1. 시트 데이터(raw_df)에서 내 이름에 해당하는 모든 행의 비번 업데이트
-                    # 0이 빠지지 않게 문자열로 처리 (RAW 모드 사용 시)
-                    raw_df.loc[raw_df['name'] == st.session_state.user_name, 'password'] = str(new_pw)
+                    # 모든 행의 비밀번호 업데이트 (zfill로 0 빠짐 방지 처리하여 저장)
+                    fixed_pw = str(new_pw).strip().zfill(4)
+                    raw_df.loc[raw_df['name'] == st.session_state.user_name, 'password'] = fixed_pw
                     
-                    # 2. 구글 시트에 저장
                     if save_to_gsheet(raw_df):
-                        st.success(f"비밀번호가 성공적으로 변경되었습니다! 👏")
-                        # 3. 앱 세션 비번도 업데이트해서 경고창이 사라지게 함
-                        st.session_state.password = str(new_pw)
+                        st.success("변경되었습니다! 다시 로그인할 때 사용하세요. ㅋ")
+                        st.session_state.password = fixed_pw # 앱 세션 즉시 반영
                         time.sleep(1)
                         st.rerun()
                     else:
-                        st.error("저장 중 오류가 발생했습니다. 다시 시도해 주세요.")
+                        st.error("저장 실패. 잠시 후 다시 시도해 주세요.")
+    st.divider()
 
 
 # --- 4. 랭킹 시스템 ---
