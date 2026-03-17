@@ -603,34 +603,32 @@ if st.session_state.is_auth:
     else:
         st.caption("아직 작성된 일지가 없습니다.")
     
-    # --- 8. 기록 업데이트 (크고 시원한 헤더 버전) ---
+    # --- 8. 기록 업데이트 (훈련 일지와 동일한 크기 헤더) ---
     st.divider()
     
-    # 1. 헤더를 크게 별도로 작성
+    # '📝 나의 훈련 일지'와 동일한 크기(##)로 설정
     st.markdown("## 💪 오늘의 기록 업데이트") 
     
-    # 2. expander에서는 제목을 짧게 하거나 아이콘만 둬서 깔끔하게 구성
-    with st.expander("클릭해서 기록 입력하기", expanded=False):
-        # 종목 선택
-        up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel")
+    with st.expander("클릭해서 새로운 기록 남기기", expanded=False):
+        # 종목 선택 (세션 유지용 키값 포함)
+        up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel_fixed")
         
-        # 선택한 종목의 기존 최고 기록 가져오기
+        # 기존 최고 기록 안내
         existing_records = my_data[my_data['exercise'] == up_ex]
         if not existing_records.empty:
             last_weight = float(existing_records['weight'].max()) 
-            help_text = f"기존 최고 기록: {last_weight} lbs"
+            help_text = f"현재 최고 기록: {last_weight} lbs"
         else:
             last_weight = 0.0
-            help_text = "새로운 종목입니다! 첫 기록을 입력하세요."
+            help_text = "새로운 종목 도전!"
     
-        with st.form("update_form", clear_on_submit=True):
-            # 입력창
-            w = st.number_input(f"성공 중량 (lbs) - {help_text}", step=5.0, value=last_weight)
-            m = st.text_input("메모", placeholder="와드 기록 또는 컨디션 등")
+        with st.form("update_form_final", clear_on_submit=True):
+            col_w, col_m = st.columns([1, 2])
+            w = col_w.number_input(f"성공 무게 (lbs)", step=5.0, value=last_weight, help=help_text)
+            m = col_m.text_input("훈련 메모 (WOD 내용 등)", placeholder="오늘의 컨디션이나 와드 기록")
             
-            # 버튼도 크게
-            if st.form_submit_button("🔥 기록 저장 (Commit)", use_container_width=True):
-                # 비밀번호 처리 (0 누락 방지)
+            if st.form_submit_button("🔥 Training Log 기록하기", use_container_width=True):
+                # 비밀번호 0 빠짐 방지 처리
                 fixed_pw = str(st.session_state.password).strip().zfill(4)
                 new_r = pd.DataFrame([{
                     "name": st.session_state.user_name, 
@@ -643,8 +641,8 @@ if st.session_state.is_auth:
                 }])
                 
                 if save_to_gsheet(pd.concat([raw_df, new_r], ignore_index=True)):
-                    st.cache_data.clear() # 캐시 비우기
-                    st.success(f"{up_ex} {w} lbs 저장 완료! 오늘도 고생하셨습니다! 🔥")
+                    st.cache_data.clear() # 즉시 반영을 위해 캐시 삭제
+                    st.success(f"✅ {up_ex} {w} lbs 기록 완료! 박제되었습니다. ㅋ")
                     time.sleep(1)
                     st.rerun()
 
