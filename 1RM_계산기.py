@@ -310,37 +310,88 @@ if st.session_state.is_auth:
                 logs_df.loc[idx, 'log_content'] = edited_log
                 if save_to_gsheet(logs_df, "training_logs"): st.rerun()
 
-    # --- 기록 업데이트 ---
+    # --- 1. 오늘의 기록 업데이트 (기본 기록 자동 로드 포함) ---
     st.divider()
-    st.subheader("💪 오늘의 기록 업데이트")
-    with st.expander("새로운 기록 남기기"):
-        up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel")
-        with st.form("update_form"):
-            w = st.number_input("성공 무게 (lbs)", step=5.0)
-            m = st.text_input("메모")
-            if st.form_submit_button("🔥 기록하기"):
-                fixed_pw = str(st.session_state.password).strip().zfill(4)
-                new_r = pd.DataFrame([{"name": user_name, "exercise": up_ex, "weight": w, "date": today_str, "password": f"'{fixed_pw}", "gender": st.session_state.user_gender, "memo": m}])
-                if save_to_gsheet(pd.concat([raw_df, new_r], ignore_index=True)): st.rerun()
+    st.subheader("🏋️ 오늘의 기록 업데이트")
+    
+    current_user = st.session_state.get("user_name", "")
+    
+    # 종목 리스트 (실제 시트의 컬럼명과 일치해야 합니다)
+    exercise_list = ["Back Squat", "Clean", "Snatch", "Deadlift", "Bench Press"]
+    selected_exercise = st.selectbox("운동 종목 선택", exercise_list)
+    
+    # [로직] 선택한 종목의 기존 기록 불러오기
+    user_data = raw_df[raw_df['name'] == current_user]
+    if not user_data.empty and selected_exercise in user_data.columns:
+        # 기존 기록이 있으면 가져오고, 없거나 NaN이면 0으로 설정
+        prev_weight = user_data[selected_exercise].values[0]
+        last_weight = int(prev_weight) if pd.notna(prev_weight) else 0
+    else:
+        last_weight = 0
+    
+    st.info(f"💡 {current_user}님의 기존 {selected_exercise} 기록은 **{last_weight}lb** 입니다.")
+    
+    with st.form("record_form"):
+        # value에 위에서 찾은 last_weight를 넣어 자동으로 채워지게 함
+        new_weight = st.number_input(f"새로운 {selected_exercise} 무게 (lb)", value=last_weight, step=5)
+        if st.form_submit_button("🚀 기록 갱신"):
+            # 데이터 업데이트
+            raw_df.loc[raw_df['name'] == current_user, selected_exercise] = new_weight
+            if save_to_gsheet(raw_df):
+                st.success(f"{selected_exercise} 기록 업데이트 완료!")
+                st.rerun()
 
 # --- Admin 제어판 ---
 st.divider()
 st.subheader("🛠️ 관리자 기능")
+
+# 현재 로그인한 사용자 이름 확인
+current_user = st.session_state.get("user_name", "")
+
 with st.expander("관리자 열기"):
     admin_pw = st.text_input("Key", type="password")
-    if (st.session_state.get("user_name") == "재효") or (admin_pw == "5207") or (st.session_state.get("user_name") == "윤아"):
-        admin_tab1, admin_tab2 = st.tabs(["📢 공지 관리", "⚙️ 시스템"])
+    
+    # [권한 체크] 재효(슈퍼관리자), 윤아(훈련관리자), 또는 마스터키(5207) 입력 시 진입
+    is_super_admin = (current_user == "재효") or (admin_pw == "5207")
+    is_training_admin = (current_user == "윤아")
+
+    if is_super_admin or is_training_admin:
+        # 슈퍼관리자는 모든 탭을 보고, 윤아님은 공지 관리 탭만 보이도록 구성
+        if is_super_admin:
+            admin_tab1, admin_tab2 = st.tabs(["📢 공지 관리", "⚙️ 시스템"])
+        else:
+            admin_tab1 = st.tabs(["📢 공지 관리"])[0]  # 윤아님은 공지 탭만 생성
+
+        # 1. 공지 관리 (재효 & 윤아 공통)
         with admin_tab1:
+            st.info(f"📍 {current_user}님, 훈련 공지를 작성해주세요.")
             with st.form("wod_form"):
-                input_title = st.text_input("제목")
+                input_title = st.text_input("제목 (예: 오늘의 WOD)")
                 input_desc = st.text_area("내용")
                 if st.form_submit_button("✅ 공지 저장"):
                     new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
-                    if save_to_gsheet(pd.concat([wod_df[wod_df['date']!=today_str], new_entry], ignore_index=True), "today_wod"): st.rerun()
-        if st.session_state.get("user_name") == "재효" or admin_pw == "5207":
+                    # 기존 공지 유지하면서 오늘 날짜 업데이트
+                    updated_wod = pd.concat([wod_df[wod_df['date'] != today_str], new_entry], ignore_index=True)
+                    if save_to_gsheet(updated_wod, "today_wod"): 
+                        st.success("공지가 등록되었습니다!")
+                        st.rerun()
+
+        # 2. 시스템 관리 (재효/마스터키 전용 - 윤아 접근 불가)
+        if is_super_admin:
             with admin_tab2:
+                st.write("👥 전체 회원 관리 및 시스템 설정")
                 st.dataframe(raw_df)
-                target = st.selectbox("초기화 유저", sorted(raw_df['name'].unique()))
-                if st.button("1234 초기화"):
-                    raw_df.loc[raw_df['name'] == target, 'password'] = "'1234"
-                    if save_to_gsheet(raw_df): st.rerun()
+                
+                st.divider()
+                st.markdown("#### 🔐 비밀번호 초기화")
+                target = st.selectbox("초기화 대상 유저 선택", sorted(raw_df['name'].unique()))
+                
+                if st.button("선택한 유저 '1234'로 초기화"):
+                    # '0' 누락 방지를 위해 문자열 포맷 유지 (시트 저장 시 중요)
+                    raw_df.loc[raw_df['name'] == target, 'password'] = "'1234" 
+                    if save_to_gsheet(raw_df): 
+                        st.success(f"[{target}]님의 비밀번호가 초기화되었습니다.")
+                        st.rerun()
+    else:
+        if admin_pw:
+            st.error("권한이 없거나 키가 올바르지 않습니다.")
