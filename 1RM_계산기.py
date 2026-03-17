@@ -56,7 +56,7 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
     return gspread.authorize(credentials)
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=300)
 def load_data_from_api(worksheet_name="Sheet1"):
     col_mapping = {
         "Sheet1": ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'],
@@ -76,7 +76,7 @@ def load_data_from_api(worksheet_name="Sheet1"):
         for col in required_cols:
             if col not in df_new.columns: df_new[col] = ""
         if 'password' in df_new.columns:
-            df_new['password'] = df_new['password'].apply(lambda x: str(x).replace("'", "").strip().replace(".0", ""))
+            df_new['password'] = df_new['password'].astype(str).str.replace("'", "", regex=False).str.strip().str.replace(".0", "", regex=False)
         return df_new
     except Exception:
         return pd.DataFrame(columns=required_cols)
