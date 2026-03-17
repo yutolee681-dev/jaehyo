@@ -88,10 +88,16 @@ def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
             worksheet = sh.worksheet(worksheet_name)
         except gspread.WorksheetNotFound:
             worksheet = sh.add_worksheet(title=worksheet_name, rows="100", cols="20")
+        
+        # 1. 모든 데이터를 문자열로 변환하고 결측치 제거
         dataframe = dataframe.fillna("")
+        
+        # 2. 데이터 준비
         data_to_save = [dataframe.columns.values.tolist()] + dataframe.astype(str).values.tolist()
         worksheet.clear()
-        worksheet.update(values=data_to_save, range_name='A1')
+        
+        # 3. 데이터 쓰기 (핵심: value_input_option='RAW')
+        worksheet.update(values=data_to_save, range_name='A1', value_input_option='RAW')
         return True
     except Exception:
         return False
@@ -466,7 +472,7 @@ with st.expander("🛠️ Admin"):
                         # (raw_df 구조에 따라 'password' 컬럼을 업데이트하거나, 별도 users_df가 있다면 그걸 사용)
                         try:
                             # 예: raw_df에서 해당 유저의 모든 행의 비번을 '1234'로 변경 (만약 한 시트에 다 있다면)
-                            raw_df.loc[raw_df['name'] == target_user, 'password'] = "1234"
+                            raw_df.loc[raw_df['name'] == target_user, 'password'] = "'1234"
                             
                             if save_to_gsheet(raw_df): # 기존 저장 함수 활용
                                 st.success(f"✅ {target_user}님 비번 초기화 완료!")
