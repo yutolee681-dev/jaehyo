@@ -545,49 +545,49 @@ if st.session_state.is_auth:
         else:
             st.info("아직 기록된 히스토리가 없습니다. 💪")
             
-    # --- [추가] 7.5. 훈련 일지 섹션 ---
+    # --- [수정] 7.5. 훈련 일지 섹션 ---
     st.divider()
     st.subheader("📝 나의 훈련 일지")
     
-    # 최신 데이터를 가져오기 위해 로드 (재효님 로그인 시 안 보였던 문제 해결)
+    # 데이터 최신화
     logs_df = load_data_from_api("training_logs") 
     user_name = st.session_state.user_name
     
     # 오늘 이미 쓴 일지가 있는지 확인
     my_today_log = logs_df[(logs_df['name'] == user_name) & (logs_df['date'] == today_str)]
     
-    # 1. 일지 작성/수정 폼
-    with st.expander("✍️ 오늘 훈련 일지 남기기", expanded=my_today_log.empty):
-        with st.form("personal_log_form"):
-            default_log = my_today_log.iloc[0]['log_content'] if not my_today_log.empty else ""
-            user_log = st.text_area("오늘 컨디션이나 보조 운동 내용을 자유롭게 적어보세요.", 
-                                    value=default_log, height=150)
-            
-            if st.form_submit_button("일지 저장", use_container_width=True):
-                new_log_data = pd.DataFrame([{"date": today_str, "name": user_name, "log_content": user_log}])
-                # Upsert: 오늘 기록 빼고 나머지와 합치기
-                other_logs = logs_df[~((logs_df['name'] == user_name) & (logs_df['date'] == today_str))]
-                final_logs = pd.concat([other_logs, new_log_data], ignore_index=True)
+    # --- [수정 포인트] 오늘 일지를 안 썼을 때만 작성 폼을 보여줌 ---
+    if my_today_log.empty:
+        with st.expander("✍️ 오늘 훈련 일지 남기기", expanded=True):
+            with st.form("personal_log_form"):
+                user_log = st.text_area("오늘 컨디션이나 보조 운동 내용을 자유롭게 적어보세요.", 
+                                        placeholder="예: 오늘은 컨디션이 좋아서 보조운동으로 턱걸이 5세트 추가함!")
                 
-                if save_to_gsheet(final_logs, "training_logs"):
-                    st.success("오늘의 일지가 저장되었습니다! 💪")
-                    time.sleep(1)
-                    st.rerun()
+                if st.form_submit_button("일지 저장", use_container_width=True):
+                    if user_log.strip(): # 내용이 있을 때만 저장
+                        new_log_data = pd.DataFrame([{"date": today_str, "name": user_name, "log_content": user_log}])
+                        final_logs = pd.concat([logs_df, new_log_data], ignore_index=True)
+                        
+                        if save_to_gsheet(final_logs, "training_logs"):
+                            st.success("오늘의 일지가 저장되었습니다! 💪")
+                            time.sleep(1)
+                            st.rerun()
+                    else:
+                        st.warning("내용을 입력해 주세요.")
+    else:
+        # 오늘 이미 썼다면 안내 문구 하나 띄워주기 (선택 사항)
+        st.info("✅ 오늘의 일지 작성을 완료했습니다. 수정은 아래 내역에서 가능합니다.")
     
-    # 2. 최근 내 일지 히스토리 (수정/삭제 기능 포함)
+    # --- 2. 최근 내 일지 히스토리 (수정/삭제 기능 동일) ---
     st.write("📅 최근 작성 내역 (최근 5개)")
     my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False).head(5)
     
     if not my_past_logs.empty:
         for idx, row in my_past_logs.iterrows():
-            # 날짜별로 깔끔하게 접이식 메뉴로 구성
-            with st.expander(f"🗓️ {row['date']} 일지 확인 및 수정"):
-                # 수정용 입력창
+            with st.expander(f"🗓️ {row['date']} 일지 확인 및 수정", expanded=(row['date'] == today_str)):
                 edited_log = st.text_area("내용 수정", value=row['log_content'], key=f"edit_log_{idx}")
-                
                 col_edit, col_del = st.columns(2)
                 
-                # 💾 수정 저장 버튼
                 if col_edit.button("💾 내용 업데이트", key=f"save_log_{idx}", use_container_width=True):
                     logs_df.loc[idx, 'log_content'] = edited_log
                     if save_to_gsheet(logs_df, "training_logs"):
@@ -595,14 +595,13 @@ if st.session_state.is_auth:
                         time.sleep(1)
                         st.rerun()
                 
-                # 🗑️ 삭제 버튼
                 if col_del.button("🗑️ 일지 삭제", key=f"del_log_{idx}", use_container_width=True):
                     if save_to_gsheet(logs_df.drop(idx), "training_logs"):
                         st.warning("일지가 삭제되었습니다.")
                         time.sleep(1)
                         st.rerun()
     else:
-        st.caption("아직 작성된 일지가 없습니다. 첫 일지를 남겨보세요!")
+        st.caption("아직 작성된 일지가 없습니다.")
     
     # --- 8. 기록 업데이트 (기존 중량 자동 로드) ---
     st.divider()
