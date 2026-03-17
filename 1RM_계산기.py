@@ -230,13 +230,18 @@ if st.session_state.is_auth:
                     radialaxis=dict(
                         visible=True, 
                         range=[0, max(radar_values) + 10 if any(radar_values) else 100], 
-                        gridcolor='#444'
+                        gridcolor='#444',
+                        showticklabels=False, # 👈 숫자가 겹치므로 숫자 라벨을 숨깁니다.
+                        ticks=""               # 눈금 꼬리표도 제거
                     ),
-                    angularaxis=dict(gridcolor='#444', tickfont=dict(color='white', size=11))
+                    angularaxis=dict(
+                        gridcolor='#444', 
+                        tickfont=dict(color='white', size=11)
+                    )
                 ),
                 showlegend=False,
                 paper_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=60, r=60, t=20, b=20),
+                margin=dict(l=40, r=40, t=30, b=30), # 👈 모바일에 맞게 여백 최적화
                 height=350
             )
             st.plotly_chart(fig, use_container_width=True)
