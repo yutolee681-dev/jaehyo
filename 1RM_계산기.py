@@ -150,7 +150,7 @@ if 'is_auth' not in st.session_state:
     st.session_state.user_name = ""
     st.session_state.user_gender = "남성"
 
-st.title("🏋️ 1RM을 기억해")
+st.title("🏋️ Training Log")
 
 # --- 오늘의 훈련 공지 표시 섹션 ---
 today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
