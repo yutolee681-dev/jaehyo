@@ -650,7 +650,7 @@ if st.session_state.is_auth:
 st.divider()
 
 # 다른 섹션들과 통일된 크기 (### 레벨)
-st.markdown("### 🛠️ Admin 제어판")
+st.markdown("### 🛠️ 관리자 기능")
 
 with st.expander("클릭해서 관리자 기능 열기", expanded=False):
     # 1. 권한 확인 로직
