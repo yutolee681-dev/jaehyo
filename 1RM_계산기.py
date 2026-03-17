@@ -310,36 +310,49 @@ if st.session_state.is_auth:
                 logs_df.loc[idx, 'log_content'] = edited_log
                 if save_to_gsheet(logs_df, "training_logs"): st.rerun()
 
-    # --- 1. 오늘의 기록 업데이트 (기본 기록 자동 로드 포함) ---
+    # --- 8. 기록 업데이트 (기존 기록 자동 로딩 버전) ---
     st.divider()
-    st.subheader("🏋️ 오늘의 기록 업데이트")
+    st.markdown("### 💪 오늘의 기록 업데이트") 
     
-    current_user = st.session_state.get("user_name", "")
-    
-    # 종목 리스트 (실제 시트의 컬럼명과 일치해야 합니다)
-    exercise_list = ["Back Squat", "Clean", "Snatch", "Deadlift", "Bench Press"]
-    selected_exercise = st.selectbox("운동 종목 선택", exercise_list)
-    
-    # [로직] 선택한 종목의 기존 기록 불러오기
-    user_data = raw_df[raw_df['name'] == current_user]
-    if not user_data.empty and selected_exercise in user_data.columns:
-        # 기존 기록이 있으면 가져오고, 없거나 NaN이면 0으로 설정
-        prev_weight = user_data[selected_exercise].values[0]
-        last_weight = int(prev_weight) if pd.notna(prev_weight) else 0
-    else:
-        last_weight = 0
-    
-    st.info(f"💡 {current_user}님의 기존 {selected_exercise} 기록은 **{last_weight}lb** 입니다.")
-    
-    with st.form("record_form"):
-        # value에 위에서 찾은 last_weight를 넣어 자동으로 채워지게 함
-        new_weight = st.number_input(f"새로운 {selected_exercise} 무게 (lb)", value=last_weight, step=5)
-        if st.form_submit_button("🚀 기록 갱신"):
-            # 데이터 업데이트
-            raw_df.loc[raw_df['name'] == current_user, selected_exercise] = new_weight
-            if save_to_gsheet(raw_df):
-                st.success(f"{selected_exercise} 기록 업데이트 완료!")
-                st.rerun()
+    with st.expander("클릭해서 새로운 기록 남기기", expanded=False):
+        # [종목 리스트] 보내주신 원본 리스트 그대로 적용
+        up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel_fixed")
+        
+        # [로직] 선택한 종목의 기존 최고 기록을 실시간으로 찾음
+        # df는 위에서 이미 필터링된 유저의 데이터(my_data)를 활용합니다.
+        existing_records = my_data[my_data['exercise'] == up_ex]
+        
+        if not existing_records.empty:
+            # 해당 종목의 무게 중 가장 높은 값을 기본값으로 설정
+            last_weight = float(existing_records['weight'].max()) 
+            help_text = f"현재 최고 기록: {last_weight} lbs"
+        else:
+            last_weight = 0.0
+            help_text = "새로운 종목 도전!"
+
+        with st.form("update_form_final", clear_on_submit=True):
+            col_w, col_m = st.columns([1, 2])
+            # value=last_weight를 통해 종목 선택 시 자동으로 무게가 채워짐
+            w = col_w.number_input(f"성공 무게 (lbs)", step=5.0, value=last_weight, help=help_text)
+            m = col_m.text_input("훈련 메모 (WOD 내용 등)", placeholder="오늘의 컨디션이나 와드 기록")
+            
+            if st.form_submit_button("🔥 Training Log 기록하기", use_container_width=True):
+                fixed_pw = str(st.session_state.password).strip().zfill(4)
+                new_r = pd.DataFrame([{
+                    "name": st.session_state.user_name, 
+                    "exercise": up_ex, 
+                    "weight": w, 
+                    "date": (datetime.now()+timedelta(hours=9)).strftime("%Y-%m-%d"), 
+                    "password": f"'{fixed_pw}", 
+                    "gender": st.session_state.user_gender, 
+                    "memo": m
+                }])
+                
+                if save_to_gsheet(pd.concat([raw_df, new_r], ignore_index=True)):
+                    st.cache_data.clear()
+                    st.success(f"✅ {up_ex} {w} lbs 기록 완료!")
+                    time.sleep(1)
+                    st.rerun()
 
 # --- Admin 제어판 ---
 st.divider()
