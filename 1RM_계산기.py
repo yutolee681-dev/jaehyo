@@ -398,7 +398,7 @@ st.subheader("🛠️ 관리자 기능")
 current_user = st.session_state.get("user_name", "")
 
 with st.expander("관리자 패널 열기"):
-    admin_pw = st.text_input("Admin Key", type="password", placeholder="재효/윤아 외에는 키 필요")
+    admin_pw = st.text_input("Admin Key", type="password", placeholder="인증키 필요")
     
     # [권한 체크 로직]
     is_super_admin = (current_user == "재효") or (admin_pw == "5207")
