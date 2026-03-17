@@ -577,56 +577,43 @@ if st.session_state.is_auth:
                 st.rerun()
 
 with st.expander("🛠️ Admin"):
-    # 1. 관리자 인증 (윤아/재효는 통과)
+    # 1. 권한 확인 로직
+    # 이미 '재효'나 '윤아'로 로그인했다면 Key 없이 통과, 아니면 Key(5207) 입력 필요
     admin_pw = st.text_input("Key", type="password", key="admin_key_input")
-    has_access = (admin_pw == "5207") or st.session_state.get("can_write", False)
-
-    if has_access:
-        st.markdown(f"### 👑 관리자 제어판 ({st.session_state.user_name})")
+    
+    current_user = st.session_state.get("user_name", "")
+    is_super = (current_user == "재효") or (admin_pw == "5207")
+    is_coach = (current_user == "윤아")
+    
+    # 두 권한 중 하나라도 있으면 진입 허용
+    if is_super or is_coach:
+        st.markdown(f"### 👑 {'슈퍼 관리자' if is_super else '코치'} 제어판")
         
-        # --- 📢 오늘의 훈련 공지 관리 섹션 ---
+        # --- [공통 권한] 📢 훈련 공지 관리 섹션 ---
         st.divider()
         st.subheader("📢 훈련 공지 관리")
         
         today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
-        # 오늘 날짜의 공지가 이미 있는지 확인
         today_wod = wod_df[wod_df['date'] == today_str] if not wod_df.empty else pd.DataFrame()
-
-        # 폼 제목 (수정 모드 vs 작성 모드)
-        form_title = "📝 오늘 자 공지 수정/삭제" if not today_wod.empty else "📝 새로운 공지 작성"
         
         with st.form("wod_manage_form"):
-            st.write(form_title)
-            
-            # 기존 데이터가 있으면 불러오고, 없으면 비워둠
             default_title = today_wod.iloc[0]['workout'] if not today_wod.empty else ""
             default_desc = today_wod.iloc[0]['description'] if not today_wod.empty else ""
             
-            # [수정] 종목 선택 대신 '제목' 입력으로 변경
             input_title = st.text_input("제목", value=default_title, placeholder="예: 오늘의 스트렝스 & 보조운동")
-            
-            # [수정] 내용 입력 칸을 크게 (text_area)
             input_desc = st.text_area("내용", value=default_desc, height=200, placeholder="훈련 내용을 상세히 적어주세요.")
             
             col_save, col_del = st.columns(2)
-            
-            # 저장/수정 버튼
             with col_save:
                 if st.form_submit_button("✅ 공지 저장/업데이트", use_container_width=True):
                     if input_title:
                         new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
-                        # 오늘 날짜 데이터는 무조건 덮어쓰기
                         other_days = wod_df[wod_df['date'] != today_str] if not wod_df.empty else pd.DataFrame()
                         final_df = pd.concat([other_days, new_entry], ignore_index=True)
-                        
                         if save_to_gsheet(final_df, "today_wod"):
                             st.success("공지가 저장되었습니다!")
                             time.sleep(1)
                             st.rerun()
-                    else:
-                        st.error("제목을 입력해 주세요.")
-            
-            # 삭제 버튼
             with col_del:
                 if st.form_submit_button("🗑️ 오늘 공지 삭제", use_container_width=True):
                     if not today_wod.empty:
@@ -635,27 +622,34 @@ with st.expander("🛠️ Admin"):
                             st.warning("오늘의 공지가 삭제되었습니다.")
                             time.sleep(1)
                             st.rerun()
-                    else:
-                        st.info("삭제할 오늘 자 공지가 없습니다.")
 
-        st.divider()
-        
-        # --- 아래는 기존 데이터 현황 및 유저 관리 ---
-        st.write("📂 전체 기록 데이터")
-        st.dataframe(raw_df)
-        
-        st.divider()
-        st.write("🔐 유저 비번 초기화")
-        user_list = sorted(raw_df['name'].unique()) if 'name' in raw_df.columns else []
-        if user_list:
-            c1, c2 = st.columns([2, 1])
-            target = c1.selectbox("유저 선택", user_list, key="admin_u_reset")
-            if c2.button("1234 초기화", key="btn_reset"):
-                raw_df.loc[raw_df['name'] == target, 'password'] = "'1234"
-                if save_to_gsheet(raw_df):
-                    st.success(f"{target} 초기화 완료")
-                    time.sleep(1)
-                    st.rerun()
+        # --- [슈퍼 관리자 전용] 유저 관리 및 데이터 확인 섹션 ---
+        if is_super:
+            st.divider()
+            st.subheader("⚙️ 시스템 관리 (Super Admin)")
+            
+            # 1. 전체 기록 데이터 조회
+            st.write("📂 전체 기록 데이터")
+            st.dataframe(raw_df)
+            
+            st.divider()
+            
+            # 2. 유저 비밀번호 초기화
+            st.write("🔐 유저 비번 초기화")
+            user_list = sorted(raw_df['name'].unique()) if 'name' in raw_df.columns else []
+            if user_list:
+                c1, c2 = st.columns([2, 1])
+                target = c1.selectbox("유저 선택", user_list, key="admin_u_reset")
+                if c2.button("1234 초기화", key="btn_reset"):
+                    raw_df.loc[raw_df['name'] == target, 'password'] = "'1234"
+                    if save_to_gsheet(raw_df):
+                        st.success(f"✅ {target}님 초기화 완료")
+                        time.sleep(1)
+                        st.rerun()
+        else:
+            # 코치 권한일 때 슈퍼 권한 영역 숨김 안내 (선택사항)
+            st.info("💡 코치님은 훈련 공지 작성 권한만 가지고 있습니다.")
+
     else:
         if admin_pw:
-            st.error("권한이 없습니다.")
+            st.error("접근 권한이 없습니다.")
