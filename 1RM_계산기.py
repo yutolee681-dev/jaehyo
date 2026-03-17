@@ -549,30 +549,23 @@ if st.session_state.is_auth:
     st.divider()
     st.subheader("📝 나의 훈련 일지")
     
-    # 🔥 [수정] 일지 섹션 진입 시 최신 일지 데이터를 다시 로드합니다.
+    # 최신 데이터를 가져오기 위해 로드 (재효님 로그인 시 안 보였던 문제 해결)
     logs_df = load_data_from_api("training_logs") 
-    
     user_name = st.session_state.user_name
+    
     # 오늘 이미 쓴 일지가 있는지 확인
     my_today_log = logs_df[(logs_df['name'] == user_name) & (logs_df['date'] == today_str)]
     
-    # 일지를 아직 안 썼으면 펼쳐져 있고, 썼으면 접혀 있도록 설정 (expanded=my_today_log.empty)
+    # 1. 일지 작성/수정 폼
     with st.expander("✍️ 오늘 훈련 일지 남기기", expanded=my_today_log.empty):
         with st.form("personal_log_form"):
             default_log = my_today_log.iloc[0]['log_content'] if not my_today_log.empty else ""
-            
             user_log = st.text_area("오늘 컨디션이나 보조 운동 내용을 자유롭게 적어보세요.", 
-                                    value=default_log, height=150,
-                                    placeholder="예: 오늘은 컨디션이 좋아서 보조운동으로 턱걸이 5세트 추가함!")
+                                    value=default_log, height=150)
             
             if st.form_submit_button("일지 저장", use_container_width=True):
-                new_log_data = pd.DataFrame([{
-                    "date": today_str,
-                    "name": user_name,
-                    "log_content": user_log
-                }])
-                
-                # 기존 데이터 중 오늘 내 기록만 제외하고 합쳐서 업데이트 (Upsert 방식)
+                new_log_data = pd.DataFrame([{"date": today_str, "name": user_name, "log_content": user_log}])
+                # Upsert: 오늘 기록 빼고 나머지와 합치기
                 other_logs = logs_df[~((logs_df['name'] == user_name) & (logs_df['date'] == today_str))]
                 final_logs = pd.concat([other_logs, new_log_data], ignore_index=True)
                 
@@ -580,14 +573,36 @@ if st.session_state.is_auth:
                     st.success("오늘의 일지가 저장되었습니다! 💪")
                     time.sleep(1)
                     st.rerun()
-
-    # 최근 내 일지 히스토리 보여주기 (최근 3개)
-    my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False).head(3)
+    
+    # 2. 최근 내 일지 히스토리 (수정/삭제 기능 포함)
+    st.write("📅 최근 작성 내역 (최근 5개)")
+    my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False).head(5)
+    
     if not my_past_logs.empty:
-        st.write("📅 최근 작성 내역")
-        for _, row in my_past_logs.iterrows():
-            st.caption(f"**{row['date']}**")
-            st.info(row['log_content'])
+        for idx, row in my_past_logs.iterrows():
+            # 날짜별로 깔끔하게 접이식 메뉴로 구성
+            with st.expander(f"🗓️ {row['date']} 일지 확인 및 수정"):
+                # 수정용 입력창
+                edited_log = st.text_area("내용 수정", value=row['log_content'], key=f"edit_log_{idx}")
+                
+                col_edit, col_del = st.columns(2)
+                
+                # 💾 수정 저장 버튼
+                if col_edit.button("💾 내용 업데이트", key=f"save_log_{idx}", use_container_width=True):
+                    logs_df.loc[idx, 'log_content'] = edited_log
+                    if save_to_gsheet(logs_df, "training_logs"):
+                        st.success("수정 완료!")
+                        time.sleep(1)
+                        st.rerun()
+                
+                # 🗑️ 삭제 버튼
+                if col_del.button("🗑️ 일지 삭제", key=f"del_log_{idx}", use_container_width=True):
+                    if save_to_gsheet(logs_df.drop(idx), "training_logs"):
+                        st.warning("일지가 삭제되었습니다.")
+                        time.sleep(1)
+                        st.rerun()
+    else:
+        st.caption("아직 작성된 일지가 없습니다. 첫 일지를 남겨보세요!")
     
     # --- 8. 기록 업데이트 (기존 중량 자동 로드) ---
     st.divider()
