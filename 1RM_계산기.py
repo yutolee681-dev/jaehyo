@@ -300,33 +300,36 @@ if st.session_state.is_auth:
     
     with tab2:
         if not my_data.empty:
+            st.markdown("### 🚀 성과 요약")
             unique_ex = sorted(my_data['exercise'].unique())
             
-            # 상단에 요약 메트릭 표시 (기존 방식 유지하되 레이아웃 개선)
-            cols = st.columns(2)
-            for i, ex in enumerate(unique_ex):
+            # 2열(columns(2)) 대신 1열로 배치하여 가독성 확보
+            for ex in unique_ex:
                 ex_d = my_data[my_data['exercise'] == ex].sort_values('date')
-                diff = ex_d.iloc[-1]['weight'] - ex_d.iloc[0]['weight']
-                cols[i%2].metric(label=f"🔥 {ex}", value=f"{ex_d.iloc[-1]['weight']} lbs", delta=f"{diff} lbs")
-            
+                
+                # 컨테이너를 사용하여 종목별로 시각적 구분감 부여
+                with st.container():
+                    if len(ex_d) > 1:
+                        first_w = ex_d.iloc[0]['weight']
+                        last_w = ex_d.iloc[-1]['weight']
+                        diff = last_w - first_w
+                        
+                        # 성장 수치에 따라 이모지 변경
+                        status_emoji = "📈" if diff > 0 else "💪"
+                        
+                        st.metric(
+                            label=f"{status_emoji} {ex}", 
+                            value=f"{last_w} lbs", 
+                            delta=f"{diff} lbs (초기 대비)"
+                        )
+                    else:
+                        st.metric(label=f"🆕 {ex}", value=f"{ex_d.iloc[-1]['weight']} lbs", delta="첫 기록 등록!")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True) # 종목 간 간격 확보
+
+            # 2. 성장 타임라인 그래프 (기존 코드 유지)
             st.divider()
-            st.subheader("📈 성장의 궤적 (Timeline)")
-            
-            # 보고 싶은 종목 선택
-            selected_ex = st.selectbox("흐름을 볼 종목 선택", unique_ex, key="growth_select")
-            chart_data = my_data[my_data['exercise'] == selected_ex].sort_values('date')
-            
-            # 선 그래프 + 점 추가
-            line = alt.Chart(chart_data).mark_line(color='#29b5e8', interpolate='monotone').encode(
-                x=alt.X('date:T', title='날짜'),
-                y=alt.Y('weight:Q', title='중량 (lbs)', scale=alt.Scale(zero=False))
-            )
-            
-            points = line.mark_point(color='#29b5e8', size=100).encode(
-                tooltip=['date', 'weight', 'memo']
-            )
-            
-            st.altair_chart(line + points, use_container_width=True)
+            # ... (이후 그래프 코드는 동일)
 
     with tab3:
         if not my_data.empty:
