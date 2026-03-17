@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import altair as alt
 import time
 import gspread
+import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 
 # 1. 페이지 설정
@@ -200,45 +201,94 @@ if st.session_state.is_auth:
 
     with tab1:
         if not my_data.empty:
+            # 데이터 준비 (종목별 최고 기록)
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
             
-            # 1. 막대 그래프
-            bars = alt.Chart(best).mark_bar(color="#29b5e8").encode(
+            # --- [1] 화려한 방사형 차트 (Strength Balance) ---
+            st.markdown("### 🧬 나의 스트렝스 밸런스")
+            
+            # 방사형 차트에 표시할 대표 6종목
+            radar_labels = ["Back Squat", "Deadlift", "Shoulder Press", "Thruster", "Power Clean", "Power Snatch"]
+            radar_values = []
+            for ex in radar_labels:
+                val = best[best['exercise'] == ex]['weight'].max()
+                radar_values.append(val if not pd.isna(val) else 0)
+
+            # Plotly 방사형 차트 생성
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(
+                r=radar_values + [radar_values[0]],
+                theta=radar_labels + [radar_labels[0]],
+                fill='toself',
+                fillcolor='rgba(41, 181, 232, 0.4)',
+                line=dict(color='#29b5e8', width=3),
+                marker=dict(size=8, color='#29b5e8')
+            ))
+
+            fig.update_layout(
+                polar=dict(
+                    bgcolor='rgba(0,0,0,0)',
+                    radialaxis=dict(
+                        visible=True,
+                        range=[0, max(radar_values) + 10 if any(radar_values) else 100],
+                        gridcolor='#444',
+                        tickfont=dict(color='gray')
+                    ),
+                    angularaxis=dict(gridcolor='#444', tickfont=dict(color='white', size=11))
+                ),
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=60, r=60, t=20, b=20),
+                height=350
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # --- [2] 세련된 막대 그래프 ---
+            st.divider()
+            st.markdown("### 🏆 종목별 최고 기록")
+            
+            bars = alt.Chart(best).mark_bar(
+                cornerRadiusTopRight=5,
+                cornerRadiusBottomRight=5
+            ).encode(
                 y=alt.Y('ex_short:N', sort='-x', title=None),
-                x=alt.X('weight:Q', title="lbs")
+                x=alt.X('weight:Q', title="Weight (lbs)"),
+                color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None)
             )
             
-            # 2. 막대 안쪽(Inside) 숫지 표시
             text = bars.mark_text(
-                align='right',      # 오른쪽 정렬하여 막대 끝 안쪽에 위치
+                align='right',
                 baseline='middle',
-                dx=-5,              # 막대 오른쪽 끝에서 안쪽으로 5픽셀 이동
-                color='white'       # 막대 색상이 파란색 계열이므로 흰색이 잘 보임
+                dx=-10,
+                color='white',
+                fontWeight='bold'
             ).encode(
                 text='weight:Q'
             )
-                       
-            # 두 레이어를 합쳐서 표시
-            st.altair_chart(bars + text, use_container_width=True)
-
-            # --- 깔끔하고 안전한 1RM 비율표 ---
-            st.divider()
-            st.markdown("### 📊 1RM 비율표 (lbs)")
             
-            calc_ex = st.selectbox("종목 선택", best['exercise'].unique(), key="percent_box")
+            st.altair_chart((bars + text).properties(height=400), use_container_width=True)
+
+            # --- [3] 1RM 비율표 (lbs) ---
+            st.divider()
+            st.markdown("### 📊 1RM 비율표")
+            
+            calc_ex = st.selectbox("비율 계산 종목", best['exercise'].unique(), key="percent_box")
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
             
-            # 데이터 생성
+            # 표 가독성 향상: 2열로 나누어 표시
             per_data = []
             for p in range(50, 105, 5):
                 per_data.append({
-                    "비율": f"{p}%",
-                    "중량": f"{round(max_w * (p/100), 1)} lbs"
+                    "Percentage": f"**{p}%**",
+                    "Weight (lbs)": f"{round(max_w * (p/100), 1)} lbs"
                 })
             
-            # 스타일은 Streamlit 기본 표 기능을 쓰되, 가독성만 챙겼습니다.
-            st.table(pd.DataFrame(per_data).set_index("비율"))
+            # Pandas 스타일링을 사용하여 좀 더 깔끔하게 출력
+            st.table(pd.DataFrame(per_data).set_index("Percentage"))
+
+        else:
+            st.info("아직 등록된 기록이 없습니다. 아래에서 오늘의 기록을 먼저 업데이트해보세요! 💪")
     
     with tab2:
         if not my_data.empty:
