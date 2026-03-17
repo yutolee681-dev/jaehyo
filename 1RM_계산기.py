@@ -231,26 +231,21 @@ if st.session_state.is_auth:
                         visible=True, 
                         range=[0, max(radar_values) + 10 if any(radar_values) else 100], 
                         gridcolor='#444',
-                        showticklabels=False, # 👈 숫자가 겹치므로 숫자 라벨을 숨깁니다.
-                        ticks=""               # 눈금 꼬리표도 제거
+                        showticklabels=False
                     ),
-                    angularaxis=dict(
-                        gridcolor='#444', 
-                        tickfont=dict(color='white', size=11)
-                    )
+                    angularaxis=dict(gridcolor='#444', tickfont=dict(color='white', size=11))
                 ),
                 showlegend=False,
                 paper_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=40, r=40, t=30, b=30), # 👈 모바일에 맞게 여백 최적화
+                margin=dict(l=60, r=60, t=20, b=20),
                 height=350
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # --- [2] 세련된 막대 그래프 (숫자 표기 완벽 수정) ---
+            # --- [2] 세련된 막대 그래프 (기존 유지) ---
             st.divider()
             st.markdown("### 🏆 종목별 최고 기록")
             
-            # A. 막대 레이어
             bars = alt.Chart(best).mark_bar(
                 cornerRadiusTopRight=5,
                 cornerRadiusBottomRight=5
@@ -260,43 +255,38 @@ if st.session_state.is_auth:
                 color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None)
             )
             
-            # B. 텍스트 레이어 (막대 오른쪽 끝 안쪽 dx=-10 위치)
             text = alt.Chart(best).mark_text(
-                align='right',      # 오른쪽 기준
-                baseline='middle',
-                dx=-10,             # 안쪽으로 10픽셀 이동
-                color='white',      # 흰색 글자
-                fontWeight='bold',
-                size=13
+                align='right', baseline='middle', dx=-10, color='white', fontWeight='bold', size=13
             ).encode(
                 y=alt.Y('ex_short:N', sort='-x'),
                 x=alt.X('weight:Q'),
-                text=alt.Text('weight:Q', format='.0f') # 소수점 없이 정수 표기
+                text=alt.Text('weight:Q', format='.0f')
             )
             
-            # C. 두 레이어 결합 및 차트 설정
-            bar_chart = alt.layer(bars, text).properties(
-                height=400
-            ).configure_axis(
-                grid=False
-            ).configure_view(
-                strokeWidth=0
-            )
-            
-            st.altair_chart(bar_chart, use_container_width=True)
+            st.altair_chart(alt.layer(bars, text).properties(height=400).configure_axis(grid=False), use_container_width=True)
 
-            # --- [3] 1RM 비율표 ---
+            # --- [3] 동기화된 1RM 비율표 ---
             st.divider()
             st.markdown("### 📊 1RM 비율표")
             
-            calc_ex = st.selectbox("비율 계산 종목", best['exercise'].unique(), key="percent_box")
+            # [핵심] 랭킹 섹션에서 선택한 종목(sel_ex)의 인덱스를 찾습니다.
+            all_exercises = list(best['exercise'].unique())
+            try:
+                # 상단 랭킹에서 선택된 sel_ex가 전체 리스트 중 몇 번째인지 확인
+                default_idx = all_exercises.index(sel_ex) 
+            except:
+                default_idx = 0
+
+            # 인덱스를 default_idx로 설정하여 랭킹 종목과 일치시킴
+            calc_ex = st.selectbox("비율 계산 종목", all_exercises, index=default_idx, key="percent_box_sync")
+            
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
             
             per_data = [{"Percentage": f"**{p}%**", "Weight (lbs)": f"{round(max_w * (p/100), 1)} lbs"} for p in range(50, 105, 5)]
             st.table(pd.DataFrame(per_data).set_index("Percentage"))
 
         else:
-            st.info("아직 등록된 기록이 없습니다. 아래에서 오늘의 기록을 먼저 업데이트해보세요! 💪")
+            st.info("기록이 없습니다. 💪")
     
     with tab2:
         if not my_data.empty:
