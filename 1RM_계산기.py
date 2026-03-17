@@ -603,40 +603,42 @@ if st.session_state.is_auth:
     else:
         st.caption("아직 작성된 일지가 없습니다.")
     
-    # --- 8. 기록 업데이트 (기존 중량 자동 로드) ---
-    st.divider()
-    st.subheader("💪 오늘의 기록 업데이트")
-    
+    # --- 8. 기록 업데이트 (접기 기능 추가) ---
+st.divider()
+
+# expander로 감싸서 기본적으로는 닫혀 있게 설정 (expanded=False)
+with st.expander("💪 오늘의 기록 업데이트", expanded=False):
     # 1. 종목 선택
     up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel")
     
-    # 2. [추가] 선택한 종목의 기존 최고 기록 가져오기
-    # 내 전체 데이터 중 해당 종목만 필터링해서 가장 높은 중량을 찾음
+    # 2. 선택한 종목의 기존 최고 기록 가져오기
     existing_records = my_data[my_data['exercise'] == up_ex]
     if not existing_records.empty:
-        last_weight = float(existing_records['weight'].max()) # 최고 기록 가져오기
+        last_weight = float(existing_records['weight'].max()) 
         help_text = f"기존 최고 기록: {last_weight} lbs"
     else:
         last_weight = 0.0
         help_text = "새로운 종목입니다! 첫 기록을 입력하세요."
 
     with st.form("update_form", clear_on_submit=True):
-        # value에 last_weight를 넣어주면 자동으로 기존 기록이 적혀있음
         w = st.number_input(f"성공 중량 (lbs) - {help_text}", step=5.0, value=last_weight)
         m = st.text_input("메모", placeholder="와드 기록 또는 컨디션 등")
         
-        if st.form_submit_button("🔥 기록 저장"):
-            # 저장 로직
+        if st.form_submit_button("🔥 기록 저장", use_container_width=True):
+            # 저장 로직 (zfill로 0 빠짐 방지)
+            fixed_pw = str(st.session_state.password).strip().zfill(4)
             new_r = pd.DataFrame([{
                 "name": st.session_state.user_name, 
                 "exercise": up_ex, 
                 "weight": w, 
                 "date": (datetime.now()+timedelta(hours=9)).strftime("%Y-%m-%d"), 
-                "password": f"'{st.session_state.password}", 
+                "password": f"'{fixed_pw}", 
                 "gender": st.session_state.user_gender, 
                 "memo": m
             }])
+            
             if save_to_gsheet(pd.concat([raw_df, new_r], ignore_index=True)):
+                st.cache_data.clear() # 캐시 비워서 즉시 반영
                 st.success(f"{up_ex} {w} lbs 저장 완료! 오늘도 고생하셨습니다! 🔥")
                 time.sleep(1)
                 st.rerun()
