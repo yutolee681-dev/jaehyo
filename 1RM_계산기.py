@@ -176,7 +176,6 @@ if 'wod_df' in locals() and not wod_df.empty:
 else:
     st.caption("📢 훈련 데이터를 불러오는 중이거나 공지가 없습니다.")
 
-st.divider()
 st.divider() # 공지사항과 본문 구분선
 
 # --- 3. 환영 메시지 및 로그아웃 + 비밀번호 변경 ---
