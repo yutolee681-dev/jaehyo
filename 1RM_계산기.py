@@ -300,6 +300,7 @@ if st.session_state.is_auth:
     
     with tab2:
         if not my_data.empty:
+            # 1. 상단 성장 카드 (성과 요약)
             st.markdown("### 🏆 나의 성장 카드")
             unique_ex = sorted(my_data['exercise'].unique())
             
@@ -309,22 +310,19 @@ if st.session_state.is_auth:
                 last_w = float(ex_d.iloc[-1]['weight'])
                 diff = last_w - first_w
                 
-                # 카드형 디자인 (HTML/CSS 활용)
+                # 카드형 디자인 컨테이너
                 with st.container():
-                    # 상단 이름 및 중량
                     c1, c2 = st.columns([3, 1])
                     c1.markdown(f"#### {ex}")
                     c2.markdown(f"**{int(last_w)}** lbs")
                     
-                    # 성장률 계산 및 프로그레스 바
-                    # (첫 기록 대비 얼마나 늘었는지 비율 시각화, 최대치 100% 기준)
+                    # 성장률에 따른 메시지 및 진행바
                     growth_rate = (diff / first_w) if first_w > 0 else 0
                     
                     if diff > 0:
-                        st.success(f"▲ {int(diff)} lbs 성장 (약 {growth_rate:.1%})")
-                        # 시각적인 바 추가 (0.0 ~ 1.0 사이 값)
-                        # 성장을 시각적으로 보여주기 위해 0.2~1.0 사이로 조정
-                        st.progress(min(growth_rate + 0.2, 1.0)) 
+                        st.success(f"▲ {int(diff)} lbs 성장 ({growth_rate:.1%})")
+                        # 시각적 피드백을 위한 프로그레스 바 (성장률 기반)
+                        st.progress(min(max(growth_rate, 0.1), 1.0)) 
                     elif diff == 0 and len(ex_d) > 1:
                         st.info("기록 유지 중! 다음 PR을 기대할게요. 🔥")
                     else:
@@ -332,12 +330,50 @@ if st.session_state.is_auth:
                     
                     st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
 
-            # 아래쪽엔 전체 흐름을 보는 그래프 하나만 배치
+            # 2. 상세 변화 그래프 (날짜 라벨 가로 고정 버전)
             st.divider()
             st.markdown("### 📈 상세 변화 그래프")
-            graph_ex = st.selectbox("종목 선택", unique_ex, key="tab2_final_select")
+            graph_ex = st.selectbox("변화 과정을 볼 종목", unique_ex, key="tab2_final_select")
+            
             g_data = my_data[my_data['exercise'] == graph_ex].sort_values('date').copy()
-            st.line_chart(g_data.set_index('date')['weight'])
+            g_data['date'] = pd.to_datetime(g_data['date'])
+            
+            # Altair를 이용한 가독성 최적화 차트
+            line_chart = alt.Chart(g_data).mark_area(
+                line={'color':'#29b5e8', 'width': 3},
+                color=alt.Gradient(
+                    gradient='linear',
+                    stops=[alt.GradientStop(color='#29b5e8', offset=0),
+                           alt.GradientStop(color='rgba(41, 181, 232, 0.1)', offset=1)],
+                    x1=1, x2=1, y1=1, y2=0
+                ),
+                interpolate='monotone'
+            ).encode(
+                x=alt.X('date:T', 
+                        title=None,
+                        axis=alt.Axis(
+                            labelAngle=0,           # 라벨 가로 고정
+                            format='%m/%d',         # 월/일 형태 (예: 03/10)
+                            tickCount=5,            # 모바일 겹침 방지
+                            grid=False
+                        )),
+                y=alt.Y('weight:Q', 
+                        title="Weight (lbs)", 
+                        scale=alt.Scale(zero=False)),
+                tooltip=[
+                    alt.Tooltip('date:T', title='날짜', format='%Y-%m-%d'),
+                    alt.Tooltip('weight:Q', title='중량'),
+                    alt.Tooltip('memo:N', title='메모')
+                ]
+            ).properties(height=300)
+            
+            # 포인트 추가
+            points = alt.Chart(g_data).mark_point(color='#29b5e8', size=60, filled=True).encode(
+                x='date:T',
+                y='weight:Q'
+            )
+            
+            st.altair_chart(line_chart + points, use_container_width=True)
             
         else:
             st.info("성장률을 분석할 기록이 아직 부족합니다. 💪")
