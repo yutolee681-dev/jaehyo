@@ -126,6 +126,35 @@ if st.session_state.is_auth:
         st.rerun()
     st.divider()
 
+# --- 비밀번호 변경 섹션 (로그인한 사용자에게만 노출) ---
+if st.session_state.is_auth:
+    with st.expander("🔐 비밀번호 변경"):
+        # 폼을 사용해서 깔끔하게 입력받음
+        with st.form("pw_change_form", clear_on_submit=True):
+            new_pw = st.text_input("새 비밀번호 (4자리)", type="password", help="숫자 4자리를 권장합니다.")
+            confirm_pw = st.text_input("새 비밀번호 확인", type="password")
+            
+            if st.form_submit_button("변경 내용 저장"):
+                if new_pw != confirm_pw:
+                    st.error("새 비밀번호가 일치하지 않습니다. 다시 확인해 주세요.")
+                elif len(new_pw) < 2:
+                    st.warning("비밀번호가 너무 짧습니다.")
+                else:
+                    # 1. 시트 데이터(raw_df)에서 내 이름에 해당하는 모든 행의 비번 업데이트
+                    # 0이 빠지지 않게 문자열로 처리 (RAW 모드 사용 시)
+                    raw_df.loc[raw_df['name'] == st.session_state.user_name, 'password'] = str(new_pw)
+                    
+                    # 2. 구글 시트에 저장
+                    if save_to_gsheet(raw_df):
+                        st.success(f"비밀번호가 성공적으로 변경되었습니다! 👏")
+                        # 3. 앱 세션 비번도 업데이트해서 경고창이 사라지게 함
+                        st.session_state.password = str(new_pw)
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("저장 중 오류가 발생했습니다. 다시 시도해 주세요.")
+
+
 # --- 4. 랭킹 시스템 ---
 st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_ex = st.selectbox("랭킹 종목 선택", exercise_list)
