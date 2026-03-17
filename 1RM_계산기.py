@@ -369,39 +369,37 @@ if st.session_state.is_auth:
             st.info("성장률을 분석할 기록이 아직 부족합니다. 💪")
     with tab3:
         if not my_data.empty:
-            st.subheader("📜 운동 기록 히스토리")
-            
-            # 최신순 정렬
-            history = my_data.copy().sort_values('date', ascending=False)
+            # 최신 순으로 정렬
+            history = my_data.sort_values('date', ascending=False)
             
             for idx, row in history.iterrows():
-                # 리스트 한 줄의 제목 구성 (가독성 최우선)
-                label = f"🏋️ {row['exercise']} | {row['weight']} lbs | {row['date']}"
-                
-                with st.expander(label):
-                    # 수정 영역을 더 작고 예쁘게 배치
-                    edit_col1, edit_col2 = st.columns([1, 1])
-                    with edit_col1:
-                        new_w = st.number_input("중량(lbs)", value=float(row['weight']), key=f"w_{idx}")
-                    with edit_col2:
-                        new_m = st.text_input("메모", value=str(row['memo']), key=f"m_{idx}")
+                # 리스트 한 줄 구성 (날짜 | 종목 | 무게)
+                with st.expander(f"📅 {row['date']} | {row['exercise']} | {row['weight']} lbs"):
+                    # 수정 입력창
+                    new_w = st.number_input("중량 수정", value=float(row['weight']), key=f"edit_w_{idx}")
+                    new_m = st.text_input("메모 수정", value=str(row['memo']), key=f"edit_m_{idx}")
                     
-                    # 버튼은 아래쪽에 작게 배치
-                    btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
+                    # 버튼 가로 배치
+                    b1, b2 = st.columns(2)
                     
-                    if btn_col1.button("💾 저장", key=f"s_{idx}"):
+                    # 💾 저장 버튼 로직
+                    if b1.button("💾 저장", key=f"save_{idx}", use_container_width=True):
                         raw_df.loc[idx, 'weight'] = new_w
                         raw_df.loc[idx, 'memo'] = new_m
                         if save_to_gsheet(raw_df):
-                            st.toast(f"{row['exercise']} 수정 완료! ✅") # 알림을 토스트로 깔끔하게
+                            st.success(f"{row['exercise']} 수정 완료! 🔥")
+                            time.sleep(1)
                             st.rerun()
-                            
-                    if btn_col2.button("🗑️ 삭제", key=f"d_{idx}"):
+                    
+                    # 🗑️ 삭제 버튼 로직
+                    if b2.button("🗑️ 삭제", key=f"del_rec_{idx}", use_container_width=True):
+                        # 해당 행을 드랍(삭제) 후 시트에 저장
                         if save_to_gsheet(raw_df.drop(idx)):
-                            st.toast("기록이 삭제되었습니다. 🗑️")
+                            st.warning(f"{row['exercise']} 기록 삭제 완료 🗑️")
+                            time.sleep(1)
                             st.rerun()
         else:
-            st.info("아직 기록이 없어요. 첫 운동을 기록해 보세요! 💪")
+            st.info("아직 기록된 히스토리가 없습니다. 💪")
 
     # --- 8. 기록 업데이트 (기존 중량 자동 로드) ---
     st.divider()
