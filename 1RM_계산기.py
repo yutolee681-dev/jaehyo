@@ -150,27 +150,33 @@ if 'is_auth' not in st.session_state:
 
 st.title("🏋️ 1RM을 기억해")
 
-# --- [신규] 오늘의 스트렝스 공지 표시 섹션 ---
-# 한국 시간(KST) 기준 오늘 날짜 생성
+# --- 오늘의 훈련 공지 표시 섹션 ---
 today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
 
-# 오늘 날짜의 공지가 있는지 확인
+# wod_df가 로드되었고 데이터가 있는지 확인
 if 'wod_df' in locals() and not wod_df.empty:
     today_wod = wod_df[wod_df['date'] == today_str]
     
     if not today_wod.empty:
         w_info = today_wod.iloc[0]
-        # 예쁜 공지 박스 출력
-        st.info(f"📅 **Today's Strength ({today_str})**")
-        st.markdown(f"### 🏋️ {w_info['workout']}")
+        
+        # 공지 박스 디자인
+        st.info(f"📅 **Today's Training ({today_str})**")
+        
+        # 제목 출력
+        st.markdown(f"### 📢 {w_info['workout']}")
+        
+        # 내용 출력 (줄바꿈 허용)
         if w_info['description']:
-            st.write(f"📝 {w_info['description']}")
+            st.markdown(f"**[훈련 내용]**")
+            st.info(w_info['description']) 
+            # st.info 대신 st.write나 st.markdown을 써도 깔끔합니다.
     else:
-        # 오늘 공지가 없을 때 (선택 사항: 지워도 됨)
-        st.caption("📢 오늘 예정된 공통 스트렝스 훈련이 없습니다. 개인 기록을 관리하세요!")
+        st.caption("📢 오늘 예정된 공통 훈련이 없습니다. 개인 스트렝스를 진행하세요!")
 else:
-    st.caption("📢 훈련 공지를 불러올 수 없습니다. 'today_wod' 시트를 확인하세요.")
+    st.caption("📢 훈련 데이터를 불러오는 중이거나 공지가 없습니다.")
 
+st.divider()
 st.divider() # 공지사항과 본문 구분선
 
 # --- 3. 환영 메시지 및 로그아웃 + 비밀번호 변경 ---
