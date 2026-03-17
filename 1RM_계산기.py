@@ -68,7 +68,8 @@ def load_data_from_api(worksheet_name="Sheet1"):
     col_mapping = {
         "Sheet1": ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'],
         "comments": ['name', 'comment', 'date'],
-        "today_wod": ['date', 'workout', 'description']  # 새로 추가될 시트
+        "today_wod": ['date', 'workout', 'description'],
+        "training_logs": ['date', 'name', 'log_content']  # ✅ 훈련 일지 시트 추가
     }
     
     # 정의되지 않은 시트일 경우 빈 리스트 반환
@@ -103,10 +104,11 @@ def load_data_from_api(worksheet_name="Sheet1"):
         # 에러 발생 시 빈 데이터프레임 반환
         return pd.DataFrame(columns=required_cols)
 
-# 데이터 로드 및 전처리 (이 부분이 데이터를 처음 불러오는 곳입니다)
+# --- 데이터 로드 및 전처리 ---
 raw_df = load_data_from_api("Sheet1")
 comments_df = load_data_from_api("comments")
-wod_df = load_data_from_api("today_wod") 
+wod_df = load_data_from_api("today_wod")
+logs_df = load_data_from_api("training_logs") 
 
 # 오늘날짜 선언
 today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
@@ -542,7 +544,48 @@ if st.session_state.is_auth:
                             st.rerun()
         else:
             st.info("아직 기록된 히스토리가 없습니다. 💪")
+            
+# --- [추가] 7.5. 훈련 일지 섹션 ---
+    st.divider()
+    st.subheader("📝 나의 훈련 일지")
+    
+    user_name = st.session_state.user_name
+    # 오늘 이미 쓴 일지가 있는지 확인
+    my_today_log = logs_df[(logs_df['name'] == user_name) & (logs_df['date'] == today_str)]
+    
+    # 일지를 아직 안 썼으면 펼쳐져 있고, 썼으면 접혀 있도록 설정 (expanded=my_today_log.empty)
+    with st.expander("✍️ 오늘 훈련 일지 남기기", expanded=my_today_log.empty):
+        with st.form("personal_log_form"):
+            default_log = my_today_log.iloc[0]['log_content'] if not my_today_log.empty else ""
+            
+            user_log = st.text_area("오늘 컨디션이나 보조 운동 내용을 자유롭게 적어보세요.", 
+                                    value=default_log, height=150,
+                                    placeholder="예: 오늘은 컨디션이 좋아서 보조운동으로 턱걸이 5세트 추가함!")
+            
+            if st.form_submit_button("일지 저장", use_container_width=True):
+                new_log_data = pd.DataFrame([{
+                    "date": today_str,
+                    "name": user_name,
+                    "log_content": user_log
+                }])
+                
+                # 기존 데이터 중 오늘 내 기록만 제외하고 합쳐서 업데이트 (Upsert 방식)
+                other_logs = logs_df[~((logs_df['name'] == user_name) & (logs_df['date'] == today_str))]
+                final_logs = pd.concat([other_logs, new_log_data], ignore_index=True)
+                
+                if save_to_gsheet(final_logs, "training_logs"):
+                    st.success("오늘의 일지가 저장되었습니다! 💪")
+                    time.sleep(1)
+                    st.rerun()
 
+    # 최근 내 일지 히스토리 보여주기 (최근 3개)
+    my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False).head(3)
+    if not my_past_logs.empty:
+        st.write("📅 최근 작성 내역")
+        for _, row in my_past_logs.iterrows():
+            st.caption(f"**{row['date']}**")
+            st.info(row['log_content'])
+    
     # --- 8. 기록 업데이트 (기존 중량 자동 로드) ---
     st.divider()
     st.subheader("💪 오늘의 기록 업데이트")
