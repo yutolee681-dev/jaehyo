@@ -388,10 +388,6 @@ if st.session_state.is_auth:
                     time.sleep(1)
                     st.rerun()
 
-# --- Admin 제어판 ---
-st.divider()
-st.subheader("🛠️ 관리자 기능")
-
 # 현재 로그인한 사용자 이름 확인
 current_user = st.session_state.get("user_name", "")
 
