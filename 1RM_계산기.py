@@ -606,8 +606,8 @@ if st.session_state.is_auth:
     # --- 8. 기록 업데이트 (훈련 일지와 동일한 크기 헤더) ---
     st.divider()
     
-    # '📝 나의 훈련 일지'와 동일한 크기(##)로 설정
-    st.markdown("## 💪 오늘의 기록 업데이트") 
+    # '📝 나의 훈련 일지'와 동일한 크기(###)로 설정
+    st.markdown("### 💪 오늘의 기록 업데이트") 
     
     with st.expander("클릭해서 새로운 기록 남기기", expanded=False):
         # 종목 선택 (세션 유지용 키값 포함)
