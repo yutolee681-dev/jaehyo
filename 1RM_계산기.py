@@ -208,14 +208,12 @@ if st.session_state.is_auth:
             # --- [1] 화려한 방사형 차트 (Strength Balance) ---
             st.markdown("### 🧬 나의 스트렝스 밸런스")
             
-            # 방사형 차트에 표시할 대표 6종목
             radar_labels = ["Back Squat", "Deadlift", "Shoulder Press", "Thruster", "Power Clean", "Power Snatch"]
             radar_values = []
             for ex in radar_labels:
                 val = best[best['exercise'] == ex]['weight'].max()
                 radar_values.append(val if not pd.isna(val) else 0)
 
-            # Plotly 방사형 차트 생성
             fig = go.Figure()
             fig.add_trace(go.Scatterpolar(
                 r=radar_values + [radar_values[0]],
@@ -229,12 +227,7 @@ if st.session_state.is_auth:
             fig.update_layout(
                 polar=dict(
                     bgcolor='rgba(0,0,0,0)',
-                    radialaxis=dict(
-                        visible=True,
-                        range=[0, max(radar_values) + 10 if any(radar_values) else 100],
-                        gridcolor='#444',
-                        tickfont=dict(color='gray')
-                    ),
+                    radialaxis=dict(visible=True, range=[0, max(radar_values) + 10 if any(radar_values) else 100], gridcolor='#444'),
                     angularaxis=dict(gridcolor='#444', tickfont=dict(color='white', size=11))
                 ),
                 showlegend=False,
@@ -244,10 +237,11 @@ if st.session_state.is_auth:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            # --- [2] 세련된 막대 그래프 ---
+            # --- [2] 세련된 막대 그래프 (숫자 표기 부활!) ---
             st.divider()
             st.markdown("### 🏆 종목별 최고 기록")
             
+            # 기본 막대 설정 (색상 그라데이션 적용)
             bars = alt.Chart(best).mark_bar(
                 cornerRadiusTopRight=5,
                 cornerRadiusBottomRight=5
@@ -257,38 +251,32 @@ if st.session_state.is_auth:
                 color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None)
             )
             
+            # 막대 안쪽에 숫자 텍스트 추가 (여기서 숫자가 다시 생깁니다!)
             text = bars.mark_text(
-                align='right',
+                align='right',      # 오른쪽 정렬
                 baseline='middle',
-                dx=-10,
-                color='white',
+                dx=-10,             # 막대 끝에서 안쪽으로 10픽셀 이동
+                color='white',      # 배경이 파란색이니 흰색으로
                 fontWeight='bold'
             ).encode(
-                text='weight:Q'
+                text=alt.Text('weight:Q', format='.1f') # 소수점 첫째자리까지 표시 (필요시 .0f로 변경 가능)
             )
             
+            # 막대와 텍스트를 합쳐서 출력
             st.altair_chart((bars + text).properties(height=400), use_container_width=True)
 
-            # --- [3] 1RM 비율표 (lbs) ---
+            # --- [3] 1RM 비율표 ---
             st.divider()
             st.markdown("### 📊 1RM 비율표")
             
             calc_ex = st.selectbox("비율 계산 종목", best['exercise'].unique(), key="percent_box")
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
             
-            # 표 가독성 향상: 2열로 나누어 표시
-            per_data = []
-            for p in range(50, 105, 5):
-                per_data.append({
-                    "Percentage": f"**{p}%**",
-                    "Weight (lbs)": f"{round(max_w * (p/100), 1)} lbs"
-                })
-            
-            # Pandas 스타일링을 사용하여 좀 더 깔끔하게 출력
+            per_data = [{"Percentage": f"**{p}%**", "Weight (lbs)": f"{round(max_w * (p/100), 1)} lbs"} for p in range(50, 105, 5)]
             st.table(pd.DataFrame(per_data).set_index("Percentage"))
 
         else:
-            st.info("아직 등록된 기록이 없습니다. 아래에서 오늘의 기록을 먼저 업데이트해보세요! 💪")
+            st.info("기록이 없습니다. 아래에서 오늘의 기록을 먼저 업데이트해보세요! 💪")
     
     with tab2:
         if not my_data.empty:
