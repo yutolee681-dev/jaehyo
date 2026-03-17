@@ -320,25 +320,27 @@ if st.session_state.is_auth:
             # --- [3] 동기화된 1RM 비율표 ---
             st.divider()
             st.markdown("### 📊 1RM 비율표")
+        
+            # [수정] 세션 상태를 이용해 선택한 종목 기억
+            if 'calc_ex_sync' not in st.session_state:
+                st.session_state.calc_ex_sync = exercise_list[0]
+    
+            # 랭킹에서 선택한 종목을 기본값으로 하되, 사용자가 바꾸면 세션에 저장
+            calc_ex = st.selectbox(
+                "비율 계산 종목", 
+                exercise_list, 
+                key="calc_ex_selector"
+            )
             
-            # [핵심] 랭킹 섹션에서 선택한 종목(sel_ex)의 인덱스를 찾습니다.
-            all_exercises = list(best['exercise'].unique())
-            try:
-                # 상단 랭킹에서 선택된 sel_ex가 전체 리스트 중 몇 번째인지 확인
-                default_idx = all_exercises.index(sel_ex) 
-            except:
-                default_idx = 0
-
-            # 인덱스를 default_idx로 설정하여 랭킹 종목과 일치시킴
-            calc_ex = st.selectbox("비율 계산 종목", all_exercises, index=default_idx, key="percent_box_sync")
+            # 선택된 종목의 최고 기록 찾기
+            ex_best = my_data[my_data['exercise'] == calc_ex]['weight'].max()
             
-            max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
-            
-            per_data = [{"Percentage": f"**{p}%**", "Weight (lbs)": f"{round(max_w * (p/100), 1)} lbs"} for p in range(50, 105, 5)]
-            st.table(pd.DataFrame(per_data).set_index("Percentage"))
-
-        else:
-            st.info("기록이 없습니다. 💪")
+            if ex_best > 0:
+                max_w = float(ex_best)
+                per_data = [{"Percentage": f"**{p}%**", "Weight (lbs)": f"{round(max_w * (p/100), 1)} lbs"} for p in range(50, 105, 5)]
+                st.table(pd.DataFrame(per_data).set_index("Percentage"))
+            else:
+                st.info(f"{calc_ex} 기록이 아직 없습니다. 기록을 먼저 등록해 주세요! 💪")
     
     with tab2:
         if not my_data.empty:
