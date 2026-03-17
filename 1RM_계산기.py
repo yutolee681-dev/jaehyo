@@ -300,37 +300,47 @@ if st.session_state.is_auth:
     
     with tab2:
         if not my_data.empty:
-            st.markdown("### 🚀 성과 요약")
+            st.markdown("### 🏆 나의 성장 카드")
             unique_ex = sorted(my_data['exercise'].unique())
             
-            # 2열(columns(2)) 대신 1열로 배치하여 가독성 확보
             for ex in unique_ex:
                 ex_d = my_data[my_data['exercise'] == ex].sort_values('date')
+                first_w = float(ex_d.iloc[0]['weight'])
+                last_w = float(ex_d.iloc[-1]['weight'])
+                diff = last_w - first_w
                 
-                # 컨테이너를 사용하여 종목별로 시각적 구분감 부여
+                # 카드형 디자인 (HTML/CSS 활용)
                 with st.container():
-                    if len(ex_d) > 1:
-                        first_w = ex_d.iloc[0]['weight']
-                        last_w = ex_d.iloc[-1]['weight']
-                        diff = last_w - first_w
-                        
-                        # 성장 수치에 따라 이모지 변경
-                        status_emoji = "📈" if diff > 0 else "💪"
-                        
-                        st.metric(
-                            label=f"{status_emoji} {ex}", 
-                            value=f"{last_w} lbs", 
-                            delta=f"{diff} lbs (초기 대비)"
-                        )
-                    else:
-                        st.metric(label=f"🆕 {ex}", value=f"{ex_d.iloc[-1]['weight']} lbs", delta="첫 기록 등록!")
+                    # 상단 이름 및 중량
+                    c1, c2 = st.columns([3, 1])
+                    c1.markdown(f"#### {ex}")
+                    c2.markdown(f"**{int(last_w)}** lbs")
                     
-                    st.markdown("<br>", unsafe_allow_html=True) # 종목 간 간격 확보
+                    # 성장률 계산 및 프로그레스 바
+                    # (첫 기록 대비 얼마나 늘었는지 비율 시각화, 최대치 100% 기준)
+                    growth_rate = (diff / first_w) if first_w > 0 else 0
+                    
+                    if diff > 0:
+                        st.success(f"▲ {int(diff)} lbs 성장 (약 {growth_rate:.1%})")
+                        # 시각적인 바 추가 (0.0 ~ 1.0 사이 값)
+                        # 성장을 시각적으로 보여주기 위해 0.2~1.0 사이로 조정
+                        st.progress(min(growth_rate + 0.2, 1.0)) 
+                    elif diff == 0 and len(ex_d) > 1:
+                        st.info("기록 유지 중! 다음 PR을 기대할게요. 🔥")
+                    else:
+                        st.write("첫 기록입니다. 성장을 기록해보세요!")
+                    
+                    st.markdown("<div style='margin-bottom: 25px;'></div>", unsafe_allow_html=True)
 
-            # 2. 성장 타임라인 그래프 (기존 코드 유지)
+            # 아래쪽엔 전체 흐름을 보는 그래프 하나만 배치
             st.divider()
-            # ... (이후 그래프 코드는 동일)
-
+            st.markdown("### 📈 상세 변화 그래프")
+            graph_ex = st.selectbox("종목 선택", unique_ex, key="tab2_final_select")
+            g_data = my_data[my_data['exercise'] == graph_ex].sort_values('date').copy()
+            st.line_chart(g_data.set_index('date')['weight'])
+            
+        else:
+            st.info("성장률을 분석할 기록이 아직 부족합니다. 💪")
     with tab3:
         if not my_data.empty:
             history = my_data.sort_values('date', ascending=False)
