@@ -124,9 +124,6 @@ if st.session_state.is_auth:
 st.subheader("🏆 박스 실시간 랭킹")
 selected_rank_ex = st.selectbox("랭킹 종목 선택", exercise_list)
 
-exercises = ["Back Squat", "Deadlift", "Shoulder Press", "Thruster", "Power Clean", "Power Snatch", "Bench Press"] # 종목 리스트
-sel_ex = st.selectbox("📊 종목 선택", exercises, key="rank_exercise") 
-
 if not df.empty:
     rank_df = df[df['exercise'] == selected_rank_ex].copy()
     rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce').fillna(0)
@@ -204,43 +201,87 @@ if st.session_state.is_auth:
 
     with tab1:
         if not my_data.empty:
-            # 1. 데이터 준비
+            # 1. 데이터 준비 (종목별 최고 기록)
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
             
-            # --- [1] 스트렝스 밸런스 (Plotly) ---
+            # --- [1] 화려한 방사형 차트 (Strength Balance) ---
             st.markdown("### 🧬 나의 스트렝스 밸런스")
-            # (기존 방사형 차트 코드는 동일하므로 생략)
-            # ... (fig 생성 및 st.plotly_chart 호출) ...
+            
+            radar_labels = ["Back Squat", "Deadlift", "Shoulder Press", "Thruster", "Power Clean", "Power Snatch"]
+            radar_values = []
+            for ex in radar_labels:
+                val = best[best['exercise'] == ex]['weight'].max()
+                radar_values.append(val if not pd.isna(val) else 0)
 
-            # --- [2] 종목별 최고 기록 (Altair) ---
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(
+                r=radar_values + [radar_values[0]],
+                theta=radar_labels + [radar_labels[0]],
+                fill='toself',
+                fillcolor='rgba(41, 181, 232, 0.4)',
+                line=dict(color='#29b5e8', width=3),
+                marker=dict(size=8, color='#29b5e8')
+            ))
+
+            fig.update_layout(
+                polar=dict(
+                    bgcolor='rgba(0,0,0,0)',
+                    radialaxis=dict(
+                        visible=True, 
+                        range=[0, max(radar_values) + 10 if any(radar_values) else 100], 
+                        gridcolor='#444',
+                        showticklabels=False
+                    ),
+                    angularaxis=dict(gridcolor='#444', tickfont=dict(color='white', size=11))
+                ),
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=60, r=60, t=20, b=20),
+                height=350
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # --- [2] 세련된 막대 그래프 (기존 유지) ---
             st.divider()
             st.markdown("### 🏆 종목별 최고 기록")
-            # (기존 막대 그래프 코드는 동일하므로 생략)
-            # ... (st.altair_chart 호출) ...
+            
+            bars = alt.Chart(best).mark_bar(
+                cornerRadiusTopRight=5,
+                cornerRadiusBottomRight=5
+            ).encode(
+                y=alt.Y('ex_short:N', sort='-x', title=None),
+                x=alt.X('weight:Q', title="Weight (lbs)"),
+                color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None)
+            )
+            
+            text = alt.Chart(best).mark_text(
+                align='right', baseline='middle', dx=-10, color='white', fontWeight='bold', size=13
+            ).encode(
+                y=alt.Y('ex_short:N', sort='-x'),
+                x=alt.X('weight:Q'),
+                text=alt.Text('weight:Q', format='.0f')
+            )
+            
+            st.altair_chart(alt.layer(bars, text).properties(height=400).configure_axis(grid=False), use_container_width=True)
 
-            # --- [3] 🔥 동기화된 1RM 비율표 ---
+            # --- [3] 동기화된 1RM 비율표 ---
             st.divider()
             st.markdown("### 📊 1RM 비율표")
             
-            # [동기화 핵심 로직]
-            # 상단 랭킹에서 선택한 종목(st.session_state.rank_exercise)이 무엇인지 확인합니다.
-            current_rank_ex = st.session_state.get('rank_exercise', best['exercise'].iloc[0])
-            
-            # 내 기록이 있는 종목 리스트 추출
-            my_exercises = list(best['exercise'].unique())
-            
-            # 만약 랭킹에서 선택한 종목이 내 기록에도 있다면 그 인덱스를 사용하고, 없으면 0번째 사용
+            # [핵심] 랭킹 섹션에서 선택한 종목(sel_ex)의 인덱스를 찾습니다.
+            all_exercises = list(best['exercise'].unique())
             try:
-                default_idx = my_exercises.index(current_rank_ex)
-            except ValueError:
+                # 상단 랭킹에서 선택된 sel_ex가 전체 리스트 중 몇 번째인지 확인
+                default_idx = all_exercises.index(sel_ex) 
+            except:
                 default_idx = 0
 
-            # index=default_idx를 설정하여 랭킹 종목과 동기화시킵니다.
-            calc_ex = st.selectbox("비율 계산 종목", my_exercises, index=default_idx, key="percent_box_sync")
+            # 인덱스를 default_idx로 설정하여 랭킹 종목과 일치시킴
+            calc_ex = st.selectbox("비율 계산 종목", all_exercises, index=default_idx, key="percent_box_sync")
             
-            # 계산 및 표 출력
             max_w = best[best['exercise'] == calc_ex]['weight'].iloc[0]
+            
             per_data = [{"Percentage": f"**{p}%**", "Weight (lbs)": f"{round(max_w * (p/100), 1)} lbs"} for p in range(50, 105, 5)]
             st.table(pd.DataFrame(per_data).set_index("Percentage"))
 
