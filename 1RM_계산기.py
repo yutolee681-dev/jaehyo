@@ -64,22 +64,55 @@ def get_gspread_client():
 
 @st.cache_data(ttl=60)
 def load_data_from_api(worksheet_name="Sheet1"):
-    required_cols = ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo']
+    # 시트별로 필요한 기본 컬럼 정의
+    col_mapping = {
+        "Sheet1": ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'],
+        "comments": ['name', 'comment', 'date'],
+        "today_wod": ['date', 'workout', 'description']  # 새로 추가될 시트
+    }
+    
+    # 정의되지 않은 시트일 경우 빈 리스트 반환
+    required_cols = col_mapping.get(worksheet_name, [])
+    
     try:
         client = get_gspread_client()
         sh = client.open_by_key(SHEET_ID)
         worksheet = sh.worksheet(worksheet_name)
         data = worksheet.get_all_records()
-        if not data: return pd.DataFrame(columns=required_cols)
+        
+        if not data: 
+            return pd.DataFrame(columns=required_cols)
+            
         df_new = pd.DataFrame(data)
+        # 컬럼명 정리 (소문자화, 공백제거)
         df_new.columns = [str(c).lower().strip() for c in df_new.columns]
+        
+        # 부족한 컬럼이 있다면 빈 값으로 채워주기
         for col in required_cols:
-            if col not in df_new.columns: df_new[col] = ""
+            if col not in df_new.columns: 
+                df_new[col] = ""
+        
+        # 비밀번호 전처리 (Sheet1인 경우만 실행)
         if 'password' in df_new.columns:
-            df_new['password'] = df_new['password'].apply(lambda x: str(x).replace("'", "").strip().replace(".0", ""))
+            df_new['password'] = df_new['password'].apply(
+                lambda x: str(x).replace("'", "").strip().replace(".0", "")
+            )
+            
         return df_new
-    except Exception:
+    except Exception as e:
+        # 에러 발생 시 빈 데이터프레임 반환
         return pd.DataFrame(columns=required_cols)
+
+# 데이터 로드 및 전처리 (이 부분이 데이터를 처음 불러오는 곳입니다)
+raw_df = load_data_from_api("Sheet1")
+comments_df = load_data_from_api("comments")
+wod_df = load_data_from_api("today_wod") 
+
+# 오늘날짜 선언
+today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
+
+# 실제 운동 기록만 필터링 (기존 코드)
+df = raw_df[~raw_df['exercise'].astype(str).str.lower().isin(['registration', 'join'])].copy()
 
 def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
     try:
@@ -116,6 +149,29 @@ if 'is_auth' not in st.session_state:
     st.session_state.user_gender = "남성"
 
 st.title("🏋️ 1RM을 기억해")
+
+# --- [신규] 오늘의 스트렝스 공지 표시 섹션 ---
+# 한국 시간(KST) 기준 오늘 날짜 생성
+today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
+
+# 오늘 날짜의 공지가 있는지 확인
+if 'wod_df' in locals() and not wod_df.empty:
+    today_wod = wod_df[wod_df['date'] == today_str]
+    
+    if not today_wod.empty:
+        w_info = today_wod.iloc[0]
+        # 예쁜 공지 박스 출력
+        st.info(f"📅 **Today's Strength ({today_str})**")
+        st.markdown(f"### 🏋️ {w_info['workout']}")
+        if w_info['description']:
+            st.write(f"📝 {w_info['description']}")
+    else:
+        # 오늘 공지가 없을 때 (선택 사항: 지워도 됨)
+        st.caption("📢 오늘 예정된 공통 스트렝스 훈련이 없습니다. 개인 기록을 관리하세요!")
+else:
+    st.caption("📢 훈련 공지를 불러올 수 없습니다. 'today_wod' 시트를 확인하세요.")
+
+st.divider() # 공지사항과 본문 구분선
 
 # --- 3. 환영 메시지 및 로그아웃 + 비밀번호 변경 ---
 if st.session_state.is_auth:
@@ -495,39 +551,67 @@ if st.session_state.is_auth:
                 st.rerun()
 
 with st.expander("🛠️ Admin"):
-        # 관리자 인증
-        if st.text_input("Key", type="password") == "5207":
-            st.markdown("### 👑 관리자 제어판")
+    # 관리자 인증 (비번 입력 또는 이미 '윤아' 코치로 로그인한 경우)
+    admin_pw = st.text_input("Key", type="password", key="admin_key_input")
+    
+    # 관리자 비번(5207)이 맞거나, 로그인한 유저가 '윤아'인 경우에만 진입
+    if admin_pw == "5207" or (st.session_state.get("is_auth") and st.session_state.user_name == "윤아"):
+        st.markdown("### 👑 관리자 제어판")
+        
+        # --- 1. 오늘의 스트렝스 훈련 공지 (윤아 코치 전용 느낌) ---
+        st.divider()
+        st.write("📢 오늘의 스트렝스 훈련 공지")
+        
+        today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
+        
+        with st.form("wod_form_admin"):
+            wod_ex = st.selectbox("오늘의 종목", exercise_list)
+            wod_desc = st.text_input("상세 내용", placeholder="예: 5-5-5-5-5 / 1RM 85%")
             
-            # 1. 원본 데이터 확인 (기존 기능)
-            st.write("📂 전체 데이터 현황")
-            st.dataframe(raw_df)
-            
-            st.divider()
-            
-            # 2. 유저 비밀번호 초기화 섹션
-            st.write("🔐 유저 관리")
-            # raw_df에서 유저 이름 목록 추출 (중복 제거)
-            user_list = sorted(raw_df['name'].unique()) if 'name' in raw_df.columns else []
-            
-            if user_list:
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    target_user = st.selectbox("초기화할 유저 선택", user_list, key="admin_select_user")
-                with col2:
-                    st.write("") # 간격 맞추기용
-                    if st.button("1234로 초기화", use_container_width=True):
-                        # 유저 데이터가 들어있는 시트나 데이터프레임에서 비번 업데이트
-                        # (raw_df 구조에 따라 'password' 컬럼을 업데이트하거나, 별도 users_df가 있다면 그걸 사용)
-                        try:
-                            # 예: raw_df에서 해당 유저의 모든 행의 비번을 '1234'로 변경 (만약 한 시트에 다 있다면)
-                            raw_df.loc[raw_df['name'] == target_user, 'password'] = "'1234"
-                            
-                            if save_to_gsheet(raw_df): # 기존 저장 함수 활용
-                                st.success(f"✅ {target_user}님 비번 초기화 완료!")
-                                time.sleep(1)
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"오류 발생: {e}")
-            else:
-                st.info("등록된 유저가 없습니다.")
+            if st.form_submit_button("훈련 공지하기", use_container_width=True):
+                new_wod = pd.DataFrame([{
+                    "date": today_str,
+                    "workout": wod_ex,
+                    "description": wod_desc
+                }])
+                
+                # 오늘 날짜 기존 공지 삭제 후 업데이트
+                updated_wod_df = wod_df[wod_df['date'] != today_str] if not wod_df.empty else wod_df
+                final_wod_df = pd.concat([updated_wod_df, new_wod], ignore_index=True)
+                
+                if save_to_gsheet(final_wod_df, "today_wod"):
+                    st.success(f"✅ {today_str} 스트렝스 공지 완료!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("'today_wod' 시트가 있는지 확인해 주세요.")
+
+        st.divider()
+        
+        # 2. 원본 데이터 확인
+        st.write("📂 전체 데이터 현황")
+        st.dataframe(raw_df)
+        
+        st.divider()
+        
+        # 3. 유저 비밀번호 초기화
+        st.write("🔐 유저 관리")
+        user_list = sorted(raw_df['name'].unique()) if 'name' in raw_df.columns else []
+        
+        if user_list:
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                target_user = st.selectbox("초기화할 유저 선택", user_list, key="admin_select_user")
+            with col2:
+                st.write("") 
+                if st.button("1234로 초기화", use_container_width=True):
+                    raw_df.loc[raw_df['name'] == target_user, 'password'] = "'1234"
+                    if save_to_gsheet(raw_df):
+                        st.success(f"✅ {target_user}님 비번 초기화 완료!")
+                        time.sleep(1)
+                        st.rerun()
+        else:
+            st.info("등록된 유저가 없습니다.")
+    else:
+        if admin_pw: # 비번을 입력했는데 틀린 경우만 에러 표시
+            st.error("권한이 없습니다.")
