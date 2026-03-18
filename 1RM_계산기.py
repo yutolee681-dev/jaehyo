@@ -118,7 +118,6 @@ df = raw_df[~raw_df['exercise'].astype(str).str.lower().isin(['registration', 'j
 if 'is_auth' not in st.session_state:
     st.session_state.update({"is_auth": False, "user_name": "", "user_gender": "남성"})
 
-st.title("🏋️ Training Log")
 col1, col2 = st.columns([3, 1])
 with col1:
     st.title("🏋️ Training Log")
