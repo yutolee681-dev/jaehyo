@@ -133,7 +133,7 @@ else: st.caption("📢 훈련 데이터를 불러오는 중이거나 공지가 �
 st.divider()
 
 # --- 오늘의 훈련 공지 섹션 바로 아래 추가 ---
-with st.expander("📅 지난 훈련 공지 보기 (WOD History)"):
+with st.expander("📅 지난 훈련 공지 보기 (WorkOut History)"):
     if not wod_df.empty:
         # 오늘 날짜 제외하고 과거순으로 정렬
         past_wods = wod_df[wod_df['date'] < today_str].sort_values('date', ascending=False)
