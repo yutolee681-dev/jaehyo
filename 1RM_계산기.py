@@ -530,57 +530,54 @@ with st.expander("관리자 패널 열기"):
         if is_super_admin:
             admin_tab1, admin_tab2 = st.tabs(["📢 훈련 공지 관리", "⚙️ 시스템 관리"])
         else:
+            # 리스트로 감싸서 [0]으로 꺼내야 에러가 안 납니다.
             admin_tab1 = st.tabs(["📢 훈련 공지 관리"])[0]
 
-       # --- 탭 1: 공지 관리 (재효 & 윤아 공용) ---
-with admin_tab1:
-    st.info(f"📍 {current_user}님, 훈련 공지를 작성/수정해주세요.")
-    
-    # 세션 상태 초기화 (처음 실행 시 오늘 데이터를 기본값으로 설정)
-    existing_today_wod = wod_df[wod_df['date'] == today_str]
-    if 'wod_title' not in st.session_state:
-        st.session_state.wod_title = existing_today_wod.iloc[0]['workout'] if not existing_today_wod.empty else ""
-    if 'wod_desc' not in st.session_state:
-        st.session_state.wod_desc = existing_today_wod.iloc[0]['description'] if not existing_today_wod.empty else ""
-
-    # --- 버튼 그룹 (새로쓰기 / 불러오기) ---
-    col_btn1, col_btn2, _ = st.columns([1, 1, 2])
-    
-    if col_btn1.button("🆕 새 공지 쓰기", use_container_width=True):
-        st.session_state.wod_title = ""
-        st.session_state.wod_desc = ""
-        st.toast("입력란을 비웠습니다. 새로 작성해주세요!", icon="✍️")
-        st.rerun()
-
-    if col_btn2.button("📥 기존 공지 불러오기", use_container_width=True):
-        if not existing_today_wod.empty:
-            st.session_state.wod_title = existing_today_wod.iloc[0]['workout']
-            st.session_state.wod_desc = existing_today_wod.iloc[0]['description']
-            st.toast("오늘 저장된 공지를 불러왔습니다.", icon="📂")
-        else:
-            st.toast("오늘 작성된 공지가 없습니다.", icon="❓")
-        st.rerun()
-
-    # --- 공지 작성 폼 ---
-    with st.form("wod_form"):
-        # 세션 상태의 값을 value로 사용
-        input_title = st.text_input("제목 (예: 오늘의 WOD)", value=st.session_state.wod_title)
-        input_desc = st.text_area("내용", value=st.session_state.wod_desc, height=200)
-        
-        if st.form_submit_button("✅ 공지 저장/업데이트"):
-            st.toast("📢 오늘의 WOD를 서버에 전송 중...", icon="🚀")
+        # --- 탭 1: 공지 관리 (재효 & 윤아 공용) ---
+        with admin_tab1:
+            st.info(f"📍 {current_user}님, 훈련 공지를 작성/수정해주세요.")
             
-            new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
-            # 오늘 날짜 데이터는 제외하고 새로운 데이터를 합침 (Overwrite)
-            updated_wod = pd.concat([wod_df[wod_df['date'] != today_str], new_entry], ignore_index=True)
+            # 세션 상태 초기화
+            existing_today_wod = wod_df[wod_df['date'] == today_str]
+            if 'wod_title' not in st.session_state:
+                st.session_state.wod_title = existing_today_wod.iloc[0]['workout'] if not existing_today_wod.empty else ""
+            if 'wod_desc' not in st.session_state:
+                st.session_state.wod_desc = existing_today_wod.iloc[0]['description'] if not existing_today_wod.empty else ""
+
+            # --- 버튼 그룹 (새로쓰기 / 불러오기) ---
+            col_btn1, col_btn2, _ = st.columns([1, 1, 2])
             
-            if save_to_gsheet(updated_wod, "today_wod"): 
-                # 저장 성공 시 세션 상태도 업데이트
-                st.session_state.wod_title = input_title
-                st.session_state.wod_desc = input_desc
-                st.toast("✅ 공지가 성공적으로 게시되었습니다!", icon="🎊")
-                time.sleep(1)
+            if col_btn1.button("🆕 새 공지 쓰기", use_container_width=True):
+                st.session_state.wod_title = ""
+                st.session_state.wod_desc = ""
+                st.toast("입력란을 비웠습니다. 새로 작성해주세요!", icon="✍️")
                 st.rerun()
+
+            if col_btn2.button("📥 기존 공지 불러오기", use_container_width=True):
+                if not existing_today_wod.empty:
+                    st.session_state.wod_title = existing_today_wod.iloc[0]['workout']
+                    st.session_state.wod_desc = existing_today_wod.iloc[0]['description']
+                    st.toast("오늘 저장된 공지를 불러왔습니다.", icon="📂")
+                else:
+                    st.toast("오늘 작성된 공지가 없습니다.", icon="❓")
+                st.rerun()
+
+            # --- 공지 작성 폼 ---
+            with st.form("wod_form"):
+                input_title = st.text_input("제목 (예: 오늘의 WOD)", value=st.session_state.wod_title)
+                input_desc = st.text_area("내용", value=st.session_state.wod_desc, height=200)
+                
+                if st.form_submit_button("✅ 공지 저장/업데이트"):
+                    st.toast("📢 오늘의 WOD를 서버에 전송 중...", icon="🚀")
+                    new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
+                    updated_wod = pd.concat([wod_df[wod_df['date'] != today_str], new_entry], ignore_index=True)
+                    
+                    if save_to_gsheet(updated_wod, "today_wod"): 
+                        st.session_state.wod_title = input_title
+                        st.session_state.wod_desc = input_desc
+                        st.toast("✅ 공지가 성공적으로 게시되었습니다!", icon="🎊")
+                        time.sleep(1)
+                        st.rerun()
 
         # --- 탭 2: 시스템 관리 (재효/슈퍼관리자 전용) ---
         if is_super_admin:
@@ -592,12 +589,9 @@ with admin_tab1:
                 st.markdown("#### 🔐 비밀번호 초기화")
                 target = st.selectbox("초기화 대상 유저", sorted(raw_df['name'].unique()))
                 if st.button("선택 유저 '1234'로 초기화"):
-                    # 1. 초기화 시작 토스트
                     st.toast(f"🔐 {target}님의 계정 보안 설정을 변경 중...", icon="⏳")
-                    
                     raw_df.loc[raw_df['name'] == target, 'password'] = "'1234" 
                     if save_to_gsheet(raw_df): 
-                        # 2. 초기화 완료 토스트
                         st.toast(f"✅ {target}님 비밀번호 초기화 완료!", icon="🔑")
                         time.sleep(1)
                         st.rerun()
