@@ -118,14 +118,8 @@ df = raw_df[~raw_df['exercise'].astype(str).str.lower().isin(['registration', 'j
 if 'is_auth' not in st.session_state:
     st.session_state.update({"is_auth": False, "user_name": "", "user_gender": "남성"})
 
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.title("🏋️ Training Log")
-with col2:
-    # 버튼을 누르면 리부트한 것과 같은 효과!
-    if st.button("🔄 갱신"):
-        st.cache_data.clear()
-        st.rerun()
+
+st.title("🏋️ Training Log")
         
 # --- 오늘의 훈련 공지 ---
 if not wod_df.empty:
@@ -163,9 +157,19 @@ st.divider()
 
 # --- 환영 메시지 & 로그아웃 ---
 if st.session_state.is_auth:
+    # 레이아웃 비율을 살짝 조정해서 버튼들이 예쁘게 배치되게 했습니다.
     col_welcome, col_refresh, col_logout = st.columns([2, 1, 1])
+    
     col_welcome.markdown(f"👋 **{st.session_state.user_name}**님")
-    if col_refresh.button("🔄 갱신", use_container_width=True): st.rerun()
+    
+    # 🔄 갱신 버튼: 캐시를 비우는 로직 추가
+    if col_refresh.button("🔄 갱신", use_container_width=True):
+        st.cache_data.clear()  # 1시간 캐시를 즉시 삭제 (리부트 효과)
+        st.toast("최신 데이터를 가져왔습니다!", icon="✨")
+        time.sleep(0.5)        # 토스트 보여줄 시간 살짝 확보
+        st.rerun()
+        
+    # 로그아웃 버튼
     if col_logout.button("로그아웃", use_container_width=True):
         st.session_state.is_auth = False
         st.rerun()
