@@ -424,27 +424,31 @@ if st.session_state.is_auth:
 
     st.write("📅 최근 작성 내역")
     
-    # 1. 내 이름으로 된 데이터 필터링 (전체)
+    # [체크!] 여기서 혹시 (logs_df['date'] == today_str) 조건이 있는지 확인해보세요.
+    # 아래처럼 '이름'으로만 필터링해야 과거 날짜가 다 나옵니다.
     my_all_logs = logs_df[logs_df['name'] == user_name]
     
-    # 2. 날짜 순으로 정렬 (최신순)
-    # head(5)를 유지하거나, 다 보고 싶으면 제거하세요.
+    # 날짜 내림차순 정렬 (최신순)
     my_past_logs = my_all_logs.sort_values('date', ascending=False)
 
-    for idx, row in my_past_logs.iterrows():
-        # [수정 포인트] 타이틀에 날짜를 명확히 표시하고, 
-        # 오늘 날짜인 것만 기본적으로 펼쳐지게(expanded) 설정
-        is_today = (str(row['date']) == today_str)
-        
-        with st.expander(f"🗓️ {row['date']} 일지 확인 및 수정", expanded=is_today):
-            edited_log = st.text_area("내용 수정", value=row['log_content'], key=f"edit_log_{idx}")
-            if st.button("💾 업데이트", key=f"up_log_{idx}"):
-                st.toast("🔄 수정 중...", icon="⏳")
-                logs_df.loc[idx, 'log_content'] = edited_log
-                if save_to_gsheet(logs_df, "training_logs"):
-                    st.toast("✅ 수정 완료!", icon="✨")
-                    time.sleep(1)
-                    st.rerun()
+    if not my_past_logs.empty:
+        for idx, row in my_past_logs.iterrows():
+            # 날짜를 문자열로 변환해서 비교 (데이터 타입 차이 방지)
+            row_date = str(row['date'])
+            is_today = (row_date == today_str)
+            
+            # 17일, 18일이 각각 개별 expander로 생깁니다.
+            with st.expander(f"🗓️ {row_date} 일지 확인 및 수정", expanded=is_today):
+                edited_log = st.text_area("내용 수정", value=row['log_content'], key=f"edit_log_{idx}")
+                if st.button("💾 업데이트", key=f"up_log_{idx}"):
+                    st.toast(f"{row_date} 일지 수정 중...", icon="⏳")
+                    logs_df.loc[idx, 'log_content'] = edited_log
+                    if save_to_gsheet(logs_df, "training_logs"):
+                        st.toast("✅ 수정 완료!", icon="✨")
+                        time.sleep(1)
+                        st.rerun()
+    else:
+        st.info("표시할 일지가 없습니다. 이름을 확인해주세요!")
 
     # --- 8. 기록 업데이트 (오늘의 기록 업데이트 섹션) ---
     st.divider()
