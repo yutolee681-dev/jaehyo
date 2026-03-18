@@ -423,17 +423,26 @@ if st.session_state.is_auth:
         st.info("✅ 오늘의 일지 작성을 완료했습니다. 아래에서 수정 가능합니다.")
 
     st.write("📅 최근 작성 내역")
-    my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False).head(5)
+    
+    # 1. 내 이름으로 된 데이터 필터링 (전체)
+    my_all_logs = logs_df[logs_df['name'] == user_name]
+    
+    # 2. 날짜 순으로 정렬 (최신순)
+    # head(5)를 유지하거나, 다 보고 싶으면 제거하세요.
+    my_past_logs = my_all_logs.sort_values('date', ascending=False)
+
     for idx, row in my_past_logs.iterrows():
-        with st.expander(f"🗓️ {row['date']} 일지 확인 및 수정", expanded=(row['date'] == today_str)):
+        # [수정 포인트] 타이틀에 날짜를 명확히 표시하고, 
+        # 오늘 날짜인 것만 기본적으로 펼쳐지게(expanded) 설정
+        is_today = (str(row['date']) == today_str)
+        
+        with st.expander(f"🗓️ {row['date']} 일지 확인 및 수정", expanded=is_today):
             edited_log = st.text_area("내용 수정", value=row['log_content'], key=f"edit_log_{idx}")
             if st.button("💾 업데이트", key=f"up_log_{idx}"):
-                # 수정 시작 토스트
-                st.toast("🔄 일지를 수정하는 중입니다...", icon="⏳")
-                
+                st.toast("🔄 수정 중...", icon="⏳")
                 logs_df.loc[idx, 'log_content'] = edited_log
                 if save_to_gsheet(logs_df, "training_logs"):
-                    st.toast("✅ 일지 수정이 완료되었습니다!", icon="✨")
+                    st.toast("✅ 수정 완료!", icon="✨")
                     time.sleep(1)
                     st.rerun()
 
