@@ -224,9 +224,10 @@ if not comments_df.empty:
                     st.toast("🗑️ 메시지를 삭제하는 중입니다...", icon="⏳")
                     
                     if save_to_gsheet(comments_df.drop(idx), "comments"): 
+                        time.sleep(0.4) # 완료 메시지를 볼 수 있게 살짝 대기
                         # 3. 삭제 완료 토스트
                         st.toast("✅ 성공적으로 삭제되었습니다.", icon="🗑️")
-                        time.sleep(0.8) # 완료 메시지를 볼 수 있게 살짝 대기
+                        time.sleep(0.4) # 완료 메시지를 볼 수 있게 살짝 대기
                         st.rerun()
                     else:
                         st.error("삭제 중 오류가 발생했습니다.")
