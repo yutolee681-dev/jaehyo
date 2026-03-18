@@ -119,7 +119,6 @@ if 'is_auth' not in st.session_state:
     st.session_state.update({"is_auth": False, "user_name": "", "user_gender": "남성"})
 
 st.title("🏋️ Training Log")
-
 # --- 오늘의 훈련 공지 ---
 if not wod_df.empty:
     today_wod = wod_df[wod_df['date'] == today_str]
@@ -130,6 +129,27 @@ if not wod_df.empty:
         if w_info['description']: st.info(w_info['description'])
     else: st.caption("📢 오늘 예정된 공통 훈련이 없습니다. 개인 스트렝스를 진행하세요!")
 else: st.caption("📢 훈련 데이터를 불러오는 중이거나 공지가 없습니다.")
+
+st.divider()
+
+# --- 오늘의 훈련 공지 섹션 바로 아래 추가 ---
+with st.expander("📅 지난 훈련 공지 보기 (WOD History)"):
+    if not wod_df.empty:
+        # 오늘 날짜 제외하고 과거순으로 정렬
+        past_wods = wod_df[wod_df['date'] < today_str].sort_values('date', ascending=False)
+        
+        if not past_wods.empty:
+            # 선택 박스로 날짜 고르기
+            selected_date = st.selectbox("날짜 선택", past_wods['date'].unique())
+            wod_detail = past_wods[past_wods['date'] == selected_date].iloc[0]
+            
+            st.markdown(f"#### 📢 {wod_detail['workout']}")
+            st.info(wod_detail['description'])
+        else:
+            st.caption("과거 기록이 없습니다.")
+    else:
+        st.caption("공지 데이터가 없습니다.")
+        
 
 st.divider()
 
