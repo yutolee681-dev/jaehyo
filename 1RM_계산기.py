@@ -179,25 +179,53 @@ if not df.empty:
         else: st.write("기록이 없습니다.")
 st.divider()
 
-# --- 응원 메시지 (속도 개선 적용) ---
+# --- 응원 메시지 (속도 및 시각적 피드백 개선) ---
 st.subheader("💬 실시간 잡도리")
+
 if st.session_state.is_auth:
     with st.form(key="comment_form", clear_on_submit=True):
         c1, c2 = st.columns([4, 1])
         new_c = c1.text_input(f"{st.session_state.user_name}님, 한마디!", placeholder="재효님 클린 ㅎㄷㄷ! 🔥")
+        
         if c2.form_submit_button("등록") and new_c:
-            kst = (datetime.now() + timedelta(hours=9)).strftime("%m/%d %H:%M")
-            # 전체 다시 안쓰고 한 줄만 추가 (속도 향상 핵심)
-            if append_to_gsheet([st.session_state.user_name, new_c, kst], "comments"): st.rerun()
+            # 1. 즉각적인 토스트 알림 (우측 하단)
+            st.toast(f'🚀 메시지를 등록 중입니다...', icon='💬')
+            
+            # 2. 상태 컨테이너로 진행 상황 표시
+            with st.status("데이터를 구글 시트에 기록 중...", expanded=False) as status:
+                kst = (datetime.now() + timedelta(hours=9)).strftime("%m/%d %H:%M")
+                
+                # append_to_gsheet 함수 호출
+                if append_to_gsheet([st.session_state.user_name, new_c, kst], "comments"):
+                    # 성공 시 상태 업데이트
+                    status.update(label="✅ 등록 완료! 화면을 갱신합니다.", state="complete", expanded=False)
+                    time.sleep(0.8)  # 사용자가 완료 메시지를 읽을 수 있는 짧은 시간
+                    st.rerun()
+                else:
+                    # 실패 시 메시지
+                    status.update(label="❌ 등록 실패. 네트워크 상태를 확인하세요.", state="error")
+                    st.error("데이터 저장 중 오류가 발생했습니다.")
 
+# --- 메시지 리스트 출력 부분 ---
 if not comments_df.empty:
     with st.expander("📂 최근 응원 메시지", expanded=True):
+        # 최신순 정렬 (index 역순)
         for idx, row in comments_df.sort_index(ascending=False).head(10).iterrows():
             c_col, d_col = st.columns([8, 1])
-            c_col.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small><br>{row['comment']}", unsafe_allow_html=True)
+            c_col.markdown(
+                f"**{row['name']}** <small style='color:gray;'>{row['date']}</small><br>{row['comment']}", 
+                unsafe_allow_html=True
+            )
+            
+            # 본인 글 삭제 기능
             if st.session_state.is_auth and row['name'] == st.session_state.user_name:
                 if d_col.button("🗑️", key=f"del_{idx}"):
-                    if save_to_gsheet(comments_df.drop(idx), "comments"): st.rerun()
+                    with st.spinner("삭제 중..."):
+                        if save_to_gsheet(comments_df.drop(idx), "comments"):
+                            st.toast("삭제되었습니다.", icon="🗑️")
+                            time.sleep(0.5)
+                            st.rerun()
+            
             st.markdown("<hr style='margin:5px 0; border:0.1px solid #333;'>", unsafe_allow_html=True)
 
 # --- 사용자 인증 ---
