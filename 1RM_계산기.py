@@ -200,7 +200,16 @@ if not comments_df.empty:
             c_col.markdown(f"**{row['name']}** <small style='color:gray;'>{row['date']}</small><br>{row['comment']}", unsafe_allow_html=True)
             if st.session_state.is_auth and row['name'] == st.session_state.user_name:
                 if d_col.button("🗑️", key=f"del_{idx}"):
-                    if save_to_gsheet(comments_df.drop(idx), "comments"): st.rerun()
+                    # 1. 삭제 시작 토스트 알림
+                    st.toast("🗑️ 메시지를 삭제하는 중입니다...", icon="⏳")
+                    
+                    if save_to_gsheet(comments_df.drop(idx), "comments"): 
+                        # 3. 삭제 완료 토스트
+                        st.toast("✅ 성공적으로 삭제되었습니다.", icon="🗑️")
+                        time.sleep(0.8) # 완료 메시지를 볼 수 있게 살짝 대기
+                        st.rerun()
+                    else:
+                        st.error("삭제 중 오류가 발생했습니다.")
             st.markdown("<hr style='margin:5px 0; border:0.1px solid #333;'>", unsafe_allow_html=True)
 
 # --- 사용자 인증 ---
