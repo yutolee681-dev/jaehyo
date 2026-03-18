@@ -526,7 +526,7 @@ with st.expander("관리자 패널 열기"):
     is_training_admin = (current_user == "윤아")
 
     if is_super_admin or is_training_admin:
-        # 1. 탭 구성: 슈퍼관리자(재효)는 2개, 훈련관리자(윤아)는 1개만 노출
+        # 1. 탭 구성
         if is_super_admin:
             admin_tab1, admin_tab2 = st.tabs(["📢 훈련 공지 관리", "⚙️ 시스템 관리"])
         else:
@@ -536,7 +536,6 @@ with st.expander("관리자 패널 열기"):
         with admin_tab1:
             st.info(f"📍 {current_user}님, 훈련 공지를 작성/수정해주세요.")
             
-            # 오늘 날짜 기존 공지 불러오기
             existing_today_wod = wod_df[wod_df['date'] == today_str]
             default_title = existing_today_wod.iloc[0]['workout'] if not existing_today_wod.empty else ""
             default_desc = existing_today_wod.iloc[0]['description'] if not existing_today_wod.empty else ""
@@ -549,11 +548,15 @@ with st.expander("관리자 패널 열기"):
                 input_desc = st.text_area("내용", value=default_desc, height=200)
                 
                 if st.form_submit_button("✅ 공지 저장/업데이트"):
+                    # 1. 공지 업데이트 시작 토스트
+                    st.toast("📢 오늘의 WOD를 서버에 전송 중...", icon="🚀")
+                    
                     new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
                     updated_wod = pd.concat([wod_df[wod_df['date'] != today_str], new_entry], ignore_index=True)
                     
                     if save_to_gsheet(updated_wod, "today_wod"): 
-                        st.success("공지가 업데이트되었습니다!")
+                        # 2. 공지 업데이트 완료 토스트
+                        st.toast("✅ 공지가 성공적으로 게시되었습니다!", icon="🎊")
                         time.sleep(1)
                         st.rerun()
 
@@ -567,9 +570,14 @@ with st.expander("관리자 패널 열기"):
                 st.markdown("#### 🔐 비밀번호 초기화")
                 target = st.selectbox("초기화 대상 유저", sorted(raw_df['name'].unique()))
                 if st.button("선택 유저 '1234'로 초기화"):
+                    # 1. 초기화 시작 토스트
+                    st.toast(f"🔐 {target}님의 계정 보안 설정을 변경 중...", icon="⏳")
+                    
                     raw_df.loc[raw_df['name'] == target, 'password'] = "'1234" 
                     if save_to_gsheet(raw_df): 
-                        st.success(f"[{target}]님의 비밀번호가 초기화되었습니다.")
+                        # 2. 초기화 완료 토스트
+                        st.toast(f"✅ {target}님 비밀번호 초기화 완료!", icon="🔑")
+                        time.sleep(1)
                         st.rerun()
     else:
         if admin_pw:
