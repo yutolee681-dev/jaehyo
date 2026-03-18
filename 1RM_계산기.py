@@ -56,7 +56,7 @@ def get_gspread_client():
     credentials = Credentials.from_service_account_info(credentials_dict, scopes=scopes)
     return gspread.authorize(credentials)
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=3600)
 def load_data_from_api(worksheet_name="Sheet1"):
     col_mapping = {
         "Sheet1": ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'],
