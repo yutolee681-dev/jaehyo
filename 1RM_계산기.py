@@ -119,6 +119,15 @@ if 'is_auth' not in st.session_state:
     st.session_state.update({"is_auth": False, "user_name": "", "user_gender": "남성"})
 
 st.title("🏋️ Training Log")
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.title("🏋️ Training Log")
+with col2:
+    # 버튼을 누르면 리부트한 것과 같은 효과!
+    if st.button("🔄 갱신"):
+        st.cache_data.clear()
+        st.rerun()
+        
 # --- 오늘의 훈련 공지 ---
 if not wod_df.empty:
     today_wod = wod_df[wod_df['date'] == today_str]
