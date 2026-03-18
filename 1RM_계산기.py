@@ -400,6 +400,7 @@ if st.session_state.is_auth:
     user_name = st.session_state.user_name
     my_today_log = logs_df[(logs_df['name'] == user_name) & (logs_df['date'] == today_str)]
 
+# --- 훈련 일지 섹션 ---
     # 오늘 일지를 안 썼을 때만 입력창 노출
     if my_today_log.empty:
         with st.expander("✍️ 오늘 훈련 일지 남기기", expanded=True):
@@ -407,11 +408,19 @@ if st.session_state.is_auth:
                 user_log = st.text_area("오늘 컨디션을 적어보세요.")
                 if st.form_submit_button("일지 저장"):
                     if user_log.strip():
-                        # 한 줄 추가 방식으로 변경 가능하나 일지는 Upsert 로직이므로 기존 방식 유지하되 캐시 비움
+                        # 1. 저장 시작 토스트
+                        st.toast("📝 훈련 일지를 저장하는 중입니다...", icon="⏳")
+                        
                         new_log = pd.DataFrame([{"date": today_str, "name": user_name, "log_content": user_log}])
                         if save_to_gsheet(pd.concat([logs_df, new_log], ignore_index=True), "training_logs"):
+                            # 2. 저장 완료 토스트
+                            st.toast("✅ 오늘 일지 저장 완료! 오완완! 🔥", icon="💪")
+                            time.sleep(1)
                             st.rerun()
-    else: st.info("✅ 오늘의 일지 작성을 완료했습니다. 아래에서 수정 가능합니다.")
+                        else:
+                            st.error("저장 중 오류가 발생했습니다.")
+    else: 
+        st.info("✅ 오늘의 일지 작성을 완료했습니다. 아래에서 수정 가능합니다.")
 
     st.write("📅 최근 작성 내역")
     my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False).head(5)
@@ -419,22 +428,26 @@ if st.session_state.is_auth:
         with st.expander(f"🗓️ {row['date']} 일지 확인 및 수정", expanded=(row['date'] == today_str)):
             edited_log = st.text_area("내용 수정", value=row['log_content'], key=f"edit_log_{idx}")
             if st.button("💾 업데이트", key=f"up_log_{idx}"):
+                # 수정 시작 토스트
+                st.toast("🔄 일지를 수정하는 중입니다...", icon="⏳")
+                
                 logs_df.loc[idx, 'log_content'] = edited_log
-                if save_to_gsheet(logs_df, "training_logs"): st.rerun()
+                if save_to_gsheet(logs_df, "training_logs"):
+                    st.toast("✅ 일지 수정이 완료되었습니다!", icon="✨")
+                    time.sleep(1)
+                    st.rerun()
 
-    # --- 8. 기록 업데이트 (기존 행 찾아서 업데이트하는 방식) ---
+    # --- 8. 기록 업데이트 (오늘의 기록 업데이트 섹션) ---
     st.divider()
     st.markdown("### 💪 오늘의 기록 업데이트") 
     
     with st.expander("클릭해서 기록 수정/업데이트", expanded=False):
         up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel_fixed")
         
-        # [중요] 내 전체 데이터 중 현재 선택한 종목의 행이 있는지 확인
         user_name = st.session_state.user_name
         existing_record = raw_df[(raw_df['name'] == user_name) & (raw_df['exercise'] == up_ex)]
         
         if not existing_record.empty:
-            # 기존 기록이 있으면 그 값을 가져옴
             last_weight = float(existing_record.iloc[-1]['weight'])
             help_text = f"현재 저장된 기록: {last_weight} lbs (수정 시 덮어씌워집니다)"
         else:
@@ -447,11 +460,10 @@ if st.session_state.is_auth:
             m = col_m.text_input("메모", placeholder="컨디션이나 와드 기록")
             
             if st.form_submit_button("💾 기록 업데이트 (덮어쓰기)", use_container_width=True):
-                # 1. 원본 raw_df에서 내 이름 & 해당 종목인 행을 제외하고 나머지만 남김 (필터링)
-                # 이렇게 하면 기존 기록이 '삭제'된 효과가 납니다.
-                other_records = raw_df[~((raw_df['name'] == user_name) & (raw_df['exercise'] == up_ex))]
+                # 기록 업데이트 시작 토스트
+                st.toast(f"🏋️ {up_ex} 기록을 업데이트 중입니다...", icon="⏳")
                 
-                # 2. 새로운 기록 데이터 생성
+                other_records = raw_df[~((raw_df['name'] == user_name) & (raw_df['exercise'] == up_ex))]
                 fixed_pw = str(st.session_state.password).strip().zfill(4)
                 new_entry = pd.DataFrame([{
                     "name": user_name, 
@@ -463,13 +475,12 @@ if st.session_state.is_auth:
                     "memo": m
                 }])
                 
-                # 3. 나머지 데이터와 새 데이터를 합침 (결과적으로 해당 종목은 1개만 남음)
                 final_df = pd.concat([other_records, new_entry], ignore_index=True)
                 
-                # 4. 저장 및 캐시 삭제
                 if save_to_gsheet(final_df):
-                    st.cache_data.clear() # 이거 안하면 화면 안바뀜!
-                    st.success(f"✅ {up_ex} 기록이 {w} lbs로 업데이트되었습니다!")
+                    st.cache_data.clear()
+                    # 기록 완료 토스트
+                    st.toast(f"🏆 {up_ex} PR 업데이트 완료! ({w} lbs)", icon="🔥")
                     time.sleep(1)
                     st.rerun()
 
