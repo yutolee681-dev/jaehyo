@@ -297,18 +297,72 @@ if st.session_state.is_auth:
     with tab2:
         if not my_data.empty:
             unique_ex = sorted(my_data['exercise'].unique())
+            
+            # 1. 상단 요약 메트릭 (최대 3개 종목 요약)
+            st.markdown("### 🚀 최근 성장 요약")
+            m_cols = st.columns(3)
+            
+            # 표시할 종목 선정 (데이터가 있는 종목 중 최대 3개)
+            display_ex = unique_ex[:3] 
+            
+            for i, ex in enumerate(display_ex):
+                ex_d = my_data[my_data['exercise'] == ex].sort_values('date')
+                if not ex_d.empty:
+                    first_w = float(ex_d.iloc[0]['weight'])
+                    last_w = float(ex_d.iloc[-1]['weight'])
+                    diff = last_w - first_w
+                    
+                    # 단축어 적용 (rename_map 사용)
+                    short_name = rename_map.get(ex, ex)
+                    
+                    # 메트릭 카드 출력
+                    m_cols[i].metric(
+                        label=f"{short_name} 기록", 
+                        value=f"{int(last_w)} lbs", 
+                        delta=f"{int(diff)} lbs" if diff != 0 else None,
+                        delta_color="normal" # 상승 시 초록색, 하락 시 빨간색 자동 적용
+                    )
+
+            st.divider()
+
+            # 2. 전체 종목 상세 리스트 (기존 progress bar 활용)
+            st.markdown("### 📋 종목별 상세 성장률")
             for ex in unique_ex:
                 ex_d = my_data[my_data['exercise'] == ex].sort_values('date')
-                first_w, last_w = float(ex_d.iloc[0]['weight']), float(ex_d.iloc[-1]['weight'])
-                diff = last_w - first_w
-                st.markdown(f"#### {ex} : **{int(last_w)}** lbs")
-                if diff > 0: st.success(f"▲ {int(diff)} lbs 성장")
-                st.progress(min(max((diff/first_w if first_w>0 else 0), 0.1), 1.0))
+                if len(ex_d) >= 1:
+                    first_w = float(ex_d.iloc[0]['weight'])
+                    last_w = float(ex_d.iloc[-1]['weight'])
+                    diff = last_w - first_w
+                    
+                    # 성장률 계산 (0으로 나누기 방지)
+                    progress_val = 0.0
+                    if first_w > 0:
+                        # 첫 기록 대비 성장 비율 (최대 100%로 제한하거나 적절히 조절)
+                        progress_val = min(max((diff / first_w), 0.0), 1.0) if diff > 0 else 0.0
+
+                    # UI 구성
+                    col_txt, col_prog = st.columns([1, 2])
+                    col_txt.markdown(f"**{ex}** : `{int(last_w)}` lbs")
+                    
+                    if diff > 0:
+                        col_prog.progress(progress_val, text=f"▲ {int(diff)} lbs 성장 중")
+                    else:
+                        col_prog.caption("기록 유지 중 (꾸준함이 답이다! 🔥)")
             
-            graph_ex = st.selectbox("변화 과정을 볼 종목", unique_ex)
+            st.divider()
+
+            # 3. 상세 변화 그래프 (기존 차트 로직)
+            st.markdown("### 📈 기록 변화 히스토리")
+            graph_ex = st.selectbox("변화 과정을 볼 종목", unique_ex, key="graph_ex_selector")
             g_data = my_data[my_data['exercise'] == graph_ex].sort_values('date').copy()
-            chart = alt.Chart(g_data).mark_line(point=True).encode(x='date:T', y='weight:Q', tooltip=['date', 'weight', 'memo'])
-            st.altair_chart(chart.properties(height=300), use_container_width=True)
+            
+            chart = alt.Chart(g_data).mark_line(point=True, color='#29b5e8').encode(
+                x=alt.X('date:T', title="날짜"),
+                y=alt.Y('weight:Q', title="중량 (lbs)", scale=alt.Scale(zero=False)),
+                tooltip=['date', 'weight', 'memo']
+            ).properties(height=300)
+            
+            st.altair_chart(chart, use_container_width=True)
 
     with tab3:
         if not my_data.empty:
