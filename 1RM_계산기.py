@@ -239,7 +239,7 @@ if not st.session_state.is_auth:
     mode = st.radio("로그인 방식", ["기존 사용자", "신규 등록"], horizontal=True)
     if mode == "기존 사용자":
         u_list = sorted(raw_df['name'].unique().tolist()) if not raw_df.empty else []
-        name = st.selectbox("이름 선택", ["선택하세요"] + u_list)
+        name = st.selectbox("이름 선택", ["선택 혹은 입력하세요"] + u_list)
         pw = st.text_input("비밀번호", type="password")
         if st.button("로그인", use_container_width=True) and name != "선택하세요":
             u_row = raw_df[raw_df['name'] == name].iloc[-1]
