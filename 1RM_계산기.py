@@ -197,7 +197,7 @@ if 'is_auth' not in st.session_state:
 # ==========================================
 head_col1, head_col2 = st.columns([3, 2])
 with head_col1:
-    st.markdown("## 🏋️ CrossFit 1RM")
+    st.markdown("## 🏋️ LIKE 1RM")
 with head_col2:
     if st.session_state.is_auth:
         b1, b2 = st.columns(2)
