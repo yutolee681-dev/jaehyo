@@ -8,79 +8,198 @@ import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 
 # 1. 페이지 설정
-st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="🏋️", layout="centered")
+st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="⚡", layout="centered")
 
-# --- 🎨 커스텀 CSS (세련된 카드 UI & 여백 최적화) ---
+# --- 🎨 하이엔드 피트니스 UI 커스텀 CSS ---
 st.markdown("""
 <style>
-    /* 전체 상단 여백 축소 */
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+    /* 전체 폰트 및 다크 배경 */
+    html, body, [class*="css"] {
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .stApp {
+        background-color: #090D16;
+        color: #F8FAFC;
+    }
     .block-container {
         padding-top: 1.5rem;
-        padding-bottom: 3rem;
-        max-width: 760px;
+        padding-bottom: 4rem;
+        max-width: 740px;
     }
-    /* 카드형 컨테이너 스타일 */
-    .wod-card {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-left: 5px solid #38bdf8;
-        padding: 1.2rem 1.5rem;
-        border-radius: 12px;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+
+    /* 상단 브랜드 헤더 */
+    .brand-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0 1rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 1.2rem;
     }
-    .wod-title {
-        color: #38bdf8;
-        font-size: 0.85rem;
-        font-weight: 700;
-        letter-spacing: 0.05em;
+    .brand-title {
+        font-size: 1.65rem;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        background: linear-gradient(90deg, #F8FAFC 0%, #38BDF8 60%, #A3E635 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+    }
+    .brand-sub {
+        font-size: 0.75rem;
+        color: #64748B;
+        font-weight: 600;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        margin-bottom: 0.3rem;
+    }
+
+    /* 글래스모피즘 WOD 카드 */
+    .wod-card {
+        background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.14), rgba(15, 23, 42, 0.85));
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 16px;
+        padding: 1.4rem 1.6rem;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    }
+    .wod-badge {
+        display: inline-block;
+        background: rgba(163, 230, 53, 0.15);
+        color: #A3E635;
+        border: 1px solid rgba(163, 230, 53, 0.35);
+        font-size: 0.72rem;
+        font-weight: 800;
+        padding: 3px 10px;
+        border-radius: 999px;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.6rem;
     }
     .wod-workout {
-        color: #f8fafc;
-        font-size: 1.35rem;
+        color: #FFFFFF;
+        font-size: 1.4rem;
         font-weight: 800;
-        margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.6rem;
     }
     .wod-desc {
-        color: #cbd5e1;
-        font-size: 0.95rem;
+        color: #CBD5E1;
+        font-size: 0.94rem;
         white-space: pre-line;
-        line-height: 1.5;
+        line-height: 1.6;
+        background: rgba(9, 13, 22, 0.45);
+        padding: 0.9rem 1rem;
+        border-radius: 10px;
+        border-left: 3px solid #38BDF8;
     }
-    /* 랭킹 테이블 스타일 */
+
+    /* KPI 요약 카드 (내 기록 탭) */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin: 0.8rem 0 1.2rem 0;
+    }
+    .kpi-box {
+        background: linear-gradient(180deg, #131B2E 0%, #0F1626 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 0.9rem 1rem;
+        text-align: center;
+    }
+    .kpi-label {
+        font-size: 0.75rem;
+        color: #94A3B8;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    .kpi-val {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #F8FAFC;
+    }
+    .kpi-accent { color: #A3E635; }
+
+    /* 하이엔드 랭킹 보드 */
     .rank-table {
         width: 100%;
         border-collapse: separate;
-        border-spacing: 0 6px;
+        border-spacing: 0 8px;
         font-size: 0.9rem;
     }
     .rank-table th {
-        color: #94a3b8;
-        font-weight: 600;
-        padding: 8px 12px;
+        color: #64748B;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 4px 14px;
         text-align: left;
-        border-bottom: 1px solid #334155;
     }
     .rank-table td {
-        background-color: #1e293b;
-        padding: 10px 12px;
-        color: #f1f5f9;
+        background: #111827;
+        border-top: 1px solid rgba(255,255,255,0.06);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        padding: 11px 14px;
+        color: #E2E8F0;
     }
-    .rank-table td:first-child { border-radius: 8px 0 0 8px; }
-    .rank-table td:last-child { border-radius: 0 8px 8px 0; }
-    
-    /* 탭 디자인 개선 */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #0f172a;
-        padding: 6px;
+    .rank-table td:first-child {
+        border-left: 1px solid rgba(255,255,255,0.06);
+        border-radius: 10px 0 0 10px;
+        border-right: 1px dashed rgba(255,255,255,0.08);
+    }
+    .rank-table td:last-child {
+        border-right: 1px solid rgba(255,255,255,0.06);
+        border-radius: 0 10px 10px 0;
+    }
+    .top1-bg { background: linear-gradient(90deg, rgba(250, 204, 21, 0.14) 0%, #111827 100%) !important; }
+
+    /* 댓글 피드 아이템 */
+    .feed-item {
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 12px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+    }
+
+    /* 탭 네비게이션 세련되게 커스텀 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        background-color: #111827;
+        padding: 6px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 8px 14px;
-        font-weight: 600;
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: #94A3B8;
+        transition: all 0.2s ease;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1E293B !important;
+        color: #38BDF8 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    .stTabs [data-baseweb="tab-highlight"] {
+        display: none;
+    }
+
+    /* 버튼 스타일 통일 */
+    .stButton > button {
+        border-radius: 10px;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        transition: all 0.15s ease;
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #0284C7 0%, #2563EB 100%);
+        border: none;
+        color: white;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -92,7 +211,7 @@ def get_ordinal(n):
     elif n == 3: return "🥉"
     if 11 <= n % 100 <= 13: suffix = 'th'
     else: suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
-    return f"<span style='color:#94a3b8; font-size:0.8rem;'>{n}{suffix}</span>"
+    return f"<span style='color:#64748B; font-size:0.8rem; font-weight:700;'>{n}{suffix}</span>"
 
 # --- 종목 및 단축어 설정 ---
 exercise_list = [
@@ -188,53 +307,57 @@ logs_df = load_data_from_api("training_logs")
 today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
 df = raw_df[~raw_df['exercise'].astype(str).str.lower().isin(['registration', 'join'])].copy()
 
-# 세션 초기화
 if 'is_auth' not in st.session_state:
     st.session_state.update({"is_auth": False, "user_name": "", "user_gender": "남성"})
 
 # ==========================================
-# 상단 헤더 & 사용자 상태 바
+# 상단 브랜드 헤더 & 퀵 컨트롤
 # ==========================================
-head_col1, head_col2 = st.columns([3, 2])
-with head_col1:
-    st.markdown("## 🏋️ LIKE 1RM Tracker")
-with head_col2:
+h_col1, h_col2 = st.columns([3.2, 1.8])
+with h_col1:
+    st.markdown("""
+    <div style="padding-top:4px;">
+        <div class="brand-sub">BOX PERFORMANCE LAB</div>
+        <h1 class="brand-title">⚡ CROSSFIT 1RM TRACKER</h1>
+    </div>
+    """, unsafe_allow_html=True)
+
+with h_col2:
     if st.session_state.is_auth:
+        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
         b1, b2 = st.columns(2)
-        if b1.button("🔄 새로고침", use_container_width=True):
+        if b1.button("🔄", help="데이터 새로고침", use_container_width=True):
             st.cache_data.clear()
-            st.toast("최신 데이터를 불러왔습니다!", icon="✨")
-            time.sleep(0.4)
+            st.toast("최신 데이터를 동기화했습니다!", icon="⚡")
+            time.sleep(0.3)
             st.rerun()
-        if b2.button("🚪 로그아웃", use_container_width=True):
+        if b2.button("로그아웃", use_container_width=True):
             st.session_state.is_auth = False
             st.rerun()
 
-# 로그인 상태 표시 및 계정 설정 (접이식으로 깔끔하게)
+# 로그인 상태 바 / 로그인 패널
 if st.session_state.is_auth:
-    with st.expander(f"👋 **{st.session_state.user_name}**님 로그인 중 · 계정 / 관리자 설정"):
-        acc_tab1, acc_tab2 = st.tabs(["🔐 비밀번호 변경", "🛠️ 관리자 메뉴"])
-        
+    with st.expander(f"🟢 **{st.session_state.user_name}**님 접속 중 · 계정 및 관리자 설정"):
+        acc_tab1, acc_tab2 = st.tabs(["🔐 비밀번호 변경", "🛠️ 관리자 콘솔"])
         with acc_tab1:
             with st.form("pw_change_top", clear_on_submit=True):
                 c_p1, c_p2, c_p3 = st.columns([2, 2, 1])
-                new_pw = c_p1.text_input("새 비밀번호", type="password", placeholder="숫자 4자리", label_visibility="collapsed")
+                new_pw = c_p1.text_input("새 비밀번호", type="password", placeholder="새 비밀번호 (4자리)", label_visibility="collapsed")
                 confirm_pw = c_p2.text_input("비밀번호 확인", type="password", placeholder="비밀번호 확인", label_visibility="collapsed")
                 if c_p3.form_submit_button("변경", use_container_width=True):
-                    if new_pw != confirm_pw: st.error("비밀번호 불일치")
-                    elif len(new_pw) < 2: st.warning("비밀번호 입력 필요")
+                    if new_pw != confirm_pw: st.error("비밀번호가 일치하지 않습니다.")
+                    elif len(new_pw) < 2: st.warning("비밀번호를 입력해 주세요.")
                     else:
                         fixed_pw = str(new_pw).strip().zfill(4)
                         raw_df.loc[raw_df['name'] == st.session_state.user_name, 'password'] = fixed_pw
                         if save_to_gsheet(raw_df):
-                            st.success("비밀번호가 변경되었습니다!")
+                            st.success("비밀번호 변경 완료!")
                             st.session_state.password = fixed_pw
-                            time.sleep(0.8)
+                            time.sleep(0.7)
                             st.rerun()
-        
         with acc_tab2:
             current_user = st.session_state.get("user_name", "")
-            admin_pw = st.text_input("Admin Key (권한자 자동인증)", type="password", placeholder="인증키 입력")
+            admin_pw = st.text_input("Admin Key", type="password", placeholder="관리자 키 입력 (권한자 자동인식)")
             is_super_admin = (current_user == "재효") or (admin_pw == "5207")
             is_training_admin = (current_user == "윤아")
 
@@ -246,52 +369,49 @@ if st.session_state.is_auth:
                     st.session_state.wod_desc = existing_today_wod.iloc[0]['description'] if not existing_today_wod.empty else ""
 
                 col_btn1, col_btn2 = st.columns(2)
-                if col_btn1.button("🆕 새 공지 비우기", use_container_width=True):
+                if col_btn1.button("🆕 입력란 비우기", use_container_width=True):
                     st.session_state.wod_title, st.session_state.wod_desc = "", ""
                     st.rerun()
-                if col_btn2.button("📥 오늘 공지 불러오기", use_container_width=True):
+                if col_btn2.button("📥 오늘 WOD 불러오기", use_container_width=True):
                     if not existing_today_wod.empty:
                         st.session_state.wod_title = existing_today_wod.iloc[0]['workout']
                         st.session_state.wod_desc = existing_today_wod.iloc[0]['description']
                     st.rerun()
 
                 with st.form("wod_form"):
-                    input_title = st.text_input("WOD 제목", value=st.session_state.wod_title)
-                    input_desc = st.text_area("WOD 내용", value=st.session_state.wod_desc, height=130)
-                    if st.form_submit_button("✅ 공지 게시하기", use_container_width=True):
+                    input_title = st.text_input("WOD 타이틀", value=st.session_state.wod_title)
+                    input_desc = st.text_area("프로그램 상세", value=st.session_state.wod_desc, height=130)
+                    if st.form_submit_button("📢 공지 게시하기", use_container_width=True, type="primary"):
                         new_entry = pd.DataFrame([{"date": today_str, "workout": input_title, "description": input_desc}])
                         updated_wod = pd.concat([wod_df[wod_df['date'] != today_str], new_entry], ignore_index=True)
                         if save_to_gsheet(updated_wod, "today_wod"):
                             st.session_state.wod_title, st.session_state.wod_desc = input_title, input_desc
-                            st.toast("공지가 게시되었습니다!", icon="🎊")
-                            time.sleep(0.8)
+                            st.toast("오늘의 WOD가 게시되었습니다!", icon="🔥")
+                            time.sleep(0.7)
                             st.rerun()
 
                 if is_super_admin:
                     st.divider()
-                    st.caption("⚙️ 시스템 관리 (슈퍼관리자 전용)")
                     target = st.selectbox("비밀번호 초기화 대상", sorted(raw_df['name'].unique()))
-                    if st.button("선택 유저 '1234'로 초기화"):
+                    if st.button("선택 회원 '1234'로 초기화"):
                         raw_df.loc[raw_df['name'] == target, 'password'] = "'1234"
                         if save_to_gsheet(raw_df):
-                            st.toast(f"{target}님 초기화 완료!", icon="🔑")
-                            time.sleep(0.8)
+                            st.toast(f"{target}님 초기화 완료", icon="🔑")
+                            time.sleep(0.7)
                             st.rerun()
-                    with st.expander("전체 Raw 데이터 보기"):
+                    with st.expander("전체 시트 데이터 보기"):
                         st.dataframe(raw_df, use_container_width=True)
             else:
-                st.caption("공지 작성 및 시스템 관리 권한이 없습니다.")
-
+                st.caption("관리자 권한이 필요합니다.")
 else:
-    # 비로그인 시 깔끔한 로그인 카드 노출
     with st.container(border=True):
-        mode = st.radio("멤버십 인증", ["기존 회원 로그인", "신규 회원 등록"], horizontal=True, label_visibility="collapsed")
-        if mode == "기존 회원 로그인":
+        mode = st.radio("인증 선택", ["🔑 회원 로그인", "✨ 신규 크로스피터 등록"], horizontal=True, label_visibility="collapsed")
+        if mode == "🔑 회원 로그인":
             u_list = sorted(raw_df['name'].unique().tolist()) if not raw_df.empty else []
-            c1, c2, c3 = st.columns([2, 2, 1])
+            c1, c2, c3 = st.columns([2, 2, 1.1])
             name = c1.selectbox("이름", ["이름 선택"] + u_list, label_visibility="collapsed")
             pw = c2.text_input("비밀번호", type="password", placeholder="비밀번호", label_visibility="collapsed")
-            if c3.button("로그인", use_container_width=True, type="primary"):
+            if c3.button("입장", use_container_width=True, type="primary"):
                 if name != "이름 선택":
                     u_row = raw_df[raw_df['name'] == name].iloc[-1]
                     input_pw_fixed = str(pw).strip().zfill(4)
@@ -305,85 +425,95 @@ else:
                     else:
                         st.error("비밀번호가 일치하지 않습니다.")
                 else:
-                    st.warning("이름을 선택해주세요.")
+                    st.warning("이름을 선택하세요.")
         else:
-            c1, c2, c3, c4 = st.columns([2, 2, 2, 1.5])
+            c1, c2, c3, c4 = st.columns([2, 1.6, 2, 1.2])
             n_n = c1.text_input("새 이름", placeholder="이름", label_visibility="collapsed")
             n_g = c2.selectbox("성별", ["남성", "여성"], label_visibility="collapsed")
-            n_p = c3.text_input("비번", type="password", placeholder="숫자 4자리", label_visibility="collapsed")
-            if c4.button("가입", use_container_width=True, type="primary") and n_n and n_p:
+            n_p = c3.text_input("비번", type="password", placeholder="비번 4자리", label_visibility="collapsed")
+            if c4.button("등록", use_container_width=True, type="primary") and n_n and n_p:
                 new_u = pd.DataFrame([{"name": n_n, "exercise": "Registration", "weight": 0, "date": today_str, "password": f"'{n_p}", "gender": n_g, "memo": "반가워요!"}])
                 if save_to_gsheet(pd.concat([raw_df, new_u], ignore_index=True)):
                     st.session_state.update({"is_auth": True, "user_name": n_n, "user_gender": n_g, "password": n_p})
                     st.rerun()
 
 # ==========================================
-# 메인 네비게이션 탭 (4단 구성)
+# 메인 네비게이션 탭
 # ==========================================
 main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
-    "🏠 홈 & 공지", 
+    "🔥 WOD & 라운지", 
     "🏆 박스 랭킹", 
     "📊 내 기록 · 분석", 
-    "📝 훈련 일지"
+    "📓 훈련 일지"
 ])
 
 # ------------------------------------------
-# TAB 1: 홈 & 공지 & 실시간 잡도리
+# TAB 1: WOD & 박스 라운지
 # ------------------------------------------
 with main_tab1:
-    # 1. 오늘의 WOD 카드
     if not wod_df.empty and not wod_df[wod_df['date'] == today_str].empty:
         w_info = wod_df[wod_df['date'] == today_str].iloc[0]
         st.markdown(f"""
         <div class="wod-card">
-            <div class="wod-title">📅 TODAY'S WOD · {today_str}</div>
-            <div class="wod-workout">📢 {w_info['workout']}</div>
+            <div class="wod-badge">TODAY'S WORKOUT · {today_str}</div>
+            <div class="wod-workout">{w_info['workout']}</div>
             <div class="wod-desc">{w_info['description']}</div>
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.info("📢 오늘 예정된 공통 WOD가 없습니다. 개인 스트렝스 훈련을 진행하세요!")
+        st.markdown(f"""
+        <div class="wod-card">
+            <div class="wod-badge">OPEN GYM · {today_str}</div>
+            <div class="wod-workout">오늘 등록된 공통 WOD가 없습니다</div>
+            <div class="wod-desc">개인 스트렝스 보강 및 약점 공략 훈련을 진행하고 1RM을 갱신해 보세요!</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # 지난 훈련 공지 (깔끔한 셀렉트)
-    with st.expander("📅 지난 훈련 공지 다시보기"):
+    with st.expander("📅 지난 WOD 아카이브 보기"):
         if not wod_df.empty:
             past_wods = wod_df[wod_df['date'] < today_str].sort_values('date', ascending=False)
             if not past_wods.empty:
                 selected_date = st.selectbox("날짜 선택", past_wods['date'].unique(), label_visibility="collapsed")
                 wod_detail = past_wods[past_wods['date'] == selected_date].iloc[0]
                 st.markdown(f"**📢 {wod_detail['workout']}**")
-                st.caption(wod_detail['description'])
+                st.info(wod_detail['description'])
             else:
-                st.caption("과거 공지 기록이 없습니다.")
+                st.caption("과거 기록이 없습니다.")
 
-    st.markdown("### 💬 실시간 잡도리 & 응원")
+    st.markdown("#### 💬 박스 라운지 & 실시간 잡도리")
     if st.session_state.is_auth:
         with st.form(key="comment_form", clear_on_submit=True):
-            c1, c2 = st.columns([4, 1])
-            new_c = c1.text_input("메시지", placeholder=f"{st.session_state.user_name}님, 한마디 남겨보세요! 🔥", label_visibility="collapsed")
-            if c2.form_submit_button("등록", use_container_width=True, type="primary") and new_c:
+            c1, c2 = st.columns([4.2, 1])
+            new_c = c1.text_input("메시지", placeholder=f"{st.session_state.user_name}님, 오늘 와드 어땠나요? 한마디 남겨보세요! 🔥", label_visibility="collapsed")
+            if c2.form_submit_button("전송", use_container_width=True, type="primary") and new_c:
                 kst = (datetime.now() + timedelta(hours=9)).strftime("%m/%d %H:%M")
                 if append_to_gsheet([st.session_state.user_name, new_c, kst], "comments"):
                     st.rerun()
     else:
-        st.caption("💡 로그인하시면 응원 메시지를 남길 수 있습니다.")
+        st.caption("💡 로그인하면 박스 멤버들과 실시간 응원 메시지를 나눌 수 있습니다.")
 
     if not comments_df.empty:
-        with st.container(border=True):
-            for idx, row in comments_df.sort_index(ascending=False).head(10).iterrows():
-                c_col, d_col = st.columns([9, 1])
-                c_col.markdown(f"**{row['name']}** <span style='color:#64748b; font-size:0.8rem;'>· {row['date']}</span><br><span style='font-size:0.95rem;'>{row['comment']}</span>", unsafe_allow_html=True)
-                if st.session_state.is_auth and row['name'] == st.session_state.user_name:
-                    if d_col.button("✕", key=f"del_{idx}", help="삭제"):
-                        if save_to_gsheet(comments_df.drop(idx), "comments"):
-                            st.rerun()
-                st.markdown("<hr style='margin:6px 0; border-color:#1e293b;'>", unsafe_allow_html=True)
+        for idx, row in comments_df.sort_index(ascending=False).head(10).iterrows():
+            c_col, d_col = st.columns([11, 1])
+            c_col.markdown(f"""
+            <div class="feed-item">
+                <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                    <span style="font-weight:700; color:#38BDF8; font-size:0.88rem;">{row['name']}</span>
+                    <span style="color:#64748B; font-size:0.75rem;">{row['date']}</span>
+                </div>
+                <div style="color:#E2E8F0; font-size:0.93rem;">{row['comment']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.session_state.is_auth and row['name'] == st.session_state.user_name:
+                if d_col.button("✕", key=f"del_{idx}", help="삭제"):
+                    if save_to_gsheet(comments_df.drop(idx), "comments"):
+                        st.rerun()
 
 # ------------------------------------------
 # TAB 2: 박스 실시간 랭킹
 # ------------------------------------------
 with main_tab2:
-    selected_rank_ex = st.selectbox("종목 선택", exercise_list)
+    selected_rank_ex = st.selectbox("리더보드 종목 선택", exercise_list)
     if not df.empty:
         rank_df = df[df['exercise'] == selected_rank_ex].copy()
         rank_df['weight'] = pd.to_numeric(rank_df['weight'], errors='coerce').fillna(0)
@@ -395,11 +525,12 @@ with main_tab2:
             max_r = max(len(m_data), len(f_data))
             
             html = """<table class='rank-table'>
-                <thead><tr><th style='width:50%;'>♂️ MALE</th><th style='width:50%;'>♀️ FEMALE</th></tr></thead>
+                <thead><tr><th style='width:50%;'>♂️ MALE DIVISION</th><th style='width:50%;'>♀️ FEMALE DIVISION</th></tr></thead>
                 <tbody>"""
             for i in range(max_r):
-                m_cell = f"<td>{get_ordinal(i+1)} &nbsp;<b>{m_data.iloc[i]['name']}</b> <span style='float:right; color:#38bdf8; font-weight:700;'>{int(m_data.iloc[i]['weight'])} lbs</span></td>" if i < len(m_data) else "<td>-</td>"
-                f_cell = f"<td>{get_ordinal(i+1)} &nbsp;<b>{f_data.iloc[i]['name']}</b> <span style='float:right; color:#f472b6; font-weight:700;'>{int(f_data.iloc[i]['weight'])} lbs</span></td>" if i < len(f_data) else "<td>-</td>"
+                top_cls = "class='top1-bg'" if i == 0 else ""
+                m_cell = f"<td {top_cls}>{get_ordinal(i+1)} &nbsp;<b>{m_data.iloc[i]['name']}</b> <span style='float:right; color:#38BDF8; font-weight:800;'>{int(m_data.iloc[i]['weight'])} <small style='color:#64748B;'>lbs</small></span></td>" if i < len(m_data) else "<td>-</td>"
+                f_cell = f"<td {top_cls}>{get_ordinal(i+1)} &nbsp;<b>{f_data.iloc[i]['name']}</b> <span style='float:right; color:#A3E635; font-weight:800;'>{int(f_data.iloc[i]['weight'])} <small style='color:#64748B;'>lbs</small></span></td>" if i < len(f_data) else "<td>-</td>"
                 html += f"<tr>{m_cell}{f_cell}</tr>"
             st.markdown(html + "</tbody></table>", unsafe_allow_html=True)
         else:
@@ -410,21 +541,20 @@ with main_tab2:
 # ------------------------------------------
 with main_tab3:
     if not st.session_state.is_auth:
-        st.warning("🔒 로그인 후 나의 1RM 기록과 성장 분석을 확인할 수 있습니다.")
+        st.warning("🔒 로그인 후 나의 1RM 대시보드와 퍼포먼스 분석을 확인할 수 있습니다.")
     else:
         user_name = st.session_state.user_name
         
-        # 1. 빠른 PR 업데이트 카드 (최상단 배치로 접근성 극대화)
-        with st.expander("➕ 새 기록 등록 / PR 업데이트", expanded=False):
+        with st.expander("⚡ 새 PR 기록 등록 / 업데이트", expanded=False):
             up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel_fixed")
             existing_record = raw_df[(raw_df['name'] == user_name) & (raw_df['exercise'] == up_ex)]
             last_weight = float(existing_record.iloc[-1]['weight']) if not existing_record.empty else 0.0
             
             with st.form("update_form_final", clear_on_submit=True):
                 col_w, col_m = st.columns([1, 2])
-                w = col_w.number_input("무게 (lbs)", step=5.0, value=last_weight)
-                m = col_m.text_input("메모", placeholder="컨디션이나 세트 기록 (선택)")
-                if st.form_submit_button("💾 기록 저장하기", use_container_width=True, type="primary"):
+                w = col_w.number_input("중량 (lbs)", step=5.0, value=last_weight)
+                m = col_m.text_input("메모", placeholder="컨디션이나 특이사항 (선택)")
+                if st.form_submit_button("💾 PR 저장하기", use_container_width=True, type="primary"):
                     other_records = raw_df[~((raw_df['name'] == user_name) & (raw_df['exercise'] == up_ex))]
                     fixed_pw = str(st.session_state.password).strip().zfill(4)
                     new_entry = pd.DataFrame([{
@@ -434,47 +564,68 @@ with main_tab3:
                     }])
                     if save_to_gsheet(pd.concat([other_records, new_entry], ignore_index=True)):
                         st.toast(f"🏆 {up_ex} {w} lbs 저장 완료!", icon="🔥")
-                        time.sleep(0.8)
+                        time.sleep(0.7)
                         st.rerun()
 
         my_data = df[df['name'] == user_name].copy()
         my_data['weight'] = pd.to_numeric(my_data['weight'], errors='coerce').fillna(0)
 
         if my_data.empty:
-            st.info("아직 등록된 1RM 기록이 없습니다. 위 버튼을 눌러 첫 기록을 등록해 보세요!")
+            st.info("아직 등록된 1RM 기록이 없습니다. 상단의 [⚡ 새 PR 기록 등록]을 눌러 시작하세요!")
         else:
-            sub_t1, sub_t2, sub_t3 = st.tabs(["🏆 PR & 밸런스", "📈 성장 추이", "📋 기록 관리"])
+            best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
+            best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
+
+            # 상단 KPI 요약 카드
+            big3_list = ["Back Squat", "Deadlift", "Bench Press"]
+            big3_total = int(best[best['exercise'].isin(big3_list)]['weight'].sum())
+            top_row = best.iloc[0]
+            st.markdown(f"""
+            <div class="kpi-grid">
+                <div class="kpi-box">
+                    <div class="kpi-label">3대 중량 합계</div>
+                    <div class="kpi-val kpi-accent">{big3_total} <small style="font-size:0.75rem; color:#94A3B8;">lbs</small></div>
+                </div>
+                <div class="kpi-box">
+                    <div class="kpi-label">최고 중량 종목</div>
+                    <div class="kpi-val">{top_row['ex_short']} <small style="font-size:0.75rem; color:#38BDF8;">{int(top_row['weight'])}</small></div>
+                </div>
+                <div class="kpi-box">
+                    <div class="kpi-label">측정 완료 종목</div>
+                    <div class="kpi-val">{len(best)} <small style="font-size:0.75rem; color:#94A3B8;">/ {len(exercise_list)}</small></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            sub_t1, sub_t2, sub_t3 = st.tabs(["🧬 밸런스 & PR", "📈 성장 추이", "🗂️ 기록 관리"])
             
             with sub_t1:
-                best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
-                best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
-                
-                # 레이더 차트
                 radar_labels = ["Back Squat", "Deadlift", "Shoulder Press", "Thruster", "Power Clean", "Power Snatch"]
                 radar_values = [best[best['exercise'] == ex]['weight'].max() if not best[best['exercise'] == ex].empty else 0 for ex in radar_labels]
                 fig = go.Figure(go.Scatterpolar(
                     r=radar_values + [radar_values[0]], theta=radar_labels + [radar_labels[0]],
-                    fill='toself', fillcolor='rgba(56, 189, 248, 0.3)', line=dict(color='#38bdf8', width=2.5)
+                    fill='toself', fillcolor='rgba(163, 230, 53, 0.22)', line=dict(color='#A3E635', width=2.5)
                 ))
                 fig.update_layout(
-                    polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=True, range=[0, max(radar_values) + 15 if any(radar_values) else 100], gridcolor='#334155', showticklabels=False)),
-                    paper_bgcolor='rgba(0,0,0,0)', height=300, margin=dict(l=50, r=50, t=20, b=20)
+                    polar=dict(
+                        bgcolor='rgba(0,0,0,0)',
+                        angularaxis=dict(tickfont=dict(color='#CBD5E1', size=11), gridcolor='rgba(255,255,255,0.08)'),
+                        radialaxis=dict(visible=True, range=[0, max(radar_values) + 15 if any(radar_values) else 100], gridcolor='rgba(255,255,255,0.08)', showticklabels=False)
+                    ),
+                    paper_bgcolor='rgba(0,0,0,0)', height=300, margin=dict(l=55, r=55, t=20, b=20)
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                # 가로 막대 차트
-                bars = alt.Chart(best).mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6).encode(
-                    y=alt.Y('ex_short:N', sort='-x', title=None),
-                    x=alt.X('weight:Q', title="Weight (lbs)"),
-                    color=alt.Color('weight:Q', scale=alt.Scale(scheme='blues'), legend=None)
+                bars = alt.Chart(best).mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6, color='#38BDF8').encode(
+                    y=alt.Y('ex_short:N', sort='-x', title=None, axis=alt.Axis(labelColor='#CBD5E1')),
+                    x=alt.X('weight:Q', title=None, axis=alt.Axis(labelColor='#64748B', gridColor='rgba(255,255,255,0.05)'))
                 )
-                text = alt.Chart(best).mark_text(align='right', baseline='middle', dx=-8, color='white', fontWeight='bold').encode(
+                text = alt.Chart(best).mark_text(align='right', baseline='middle', dx=-8, color='#090D16', fontWeight='bold').encode(
                     y=alt.Y('ex_short:N', sort='-x'), x=alt.X('weight:Q'), text=alt.Text('weight:Q', format='.0f')
                 )
-                st.altair_chart(alt.layer(bars, text).properties(height=340), use_container_width=True)
+                st.altair_chart(alt.layer(bars, text).properties(height=340).configure_view(strokeWidth=0), use_container_width=True)
 
-                # 1RM 퍼센트 계산기 (2단 그리드로 컴팩트하게)
-                with st.expander("🧮 훈련 중량(%) 계산기"):
+                with st.expander("🧮 훈련 중량(%) 빠른 계산기"):
                     calc_ex = st.selectbox("종목 선택", exercise_list, key="calc_ex_selector")
                     ex_best = my_data[my_data['exercise'] == calc_ex]['weight'].max()
                     if ex_best > 0:
@@ -494,20 +645,20 @@ with main_tab3:
                     m_cols[i].metric(rename_map.get(ex, ex), f"{int(last_w)} lbs", f"{int(diff)} lbs" if diff != 0 else None)
 
                 st.divider()
-                graph_ex = st.selectbox("상세 그래프 종목", sorted(my_data['exercise'].unique()), key="graph_ex_selector_v2")
+                graph_ex = st.selectbox("추이 그래프 종목", sorted(my_data['exercise'].unique()), key="graph_ex_selector_v2")
                 g_data = my_data[my_data['exercise'] == graph_ex].sort_values('date').copy()
-                chart = alt.Chart(g_data).mark_line(point=True, color='#38bdf8').encode(
-                    x=alt.X('date:T', title="날짜"),
-                    y=alt.Y('weight:Q', title="중량 (lbs)", scale=alt.Scale(zero=False)),
+                chart = alt.Chart(g_data).mark_line(point=alt.OverlayMarkDef(color='#A3E635', size=70), color='#38BDF8', strokeWidth=3).encode(
+                    x=alt.X('date:T', title=None, axis=alt.Axis(labelColor='#94A3B8')),
+                    y=alt.Y('weight:Q', title="lbs", scale=alt.Scale(zero=False), axis=alt.Axis(labelColor='#94A3B8', gridColor='rgba(255,255,255,0.06)')),
                     tooltip=['date', 'weight', 'memo']
-                ).properties(height=260)
+                ).properties(height=250).configure_view(strokeWidth=0)
                 st.altair_chart(chart, use_container_width=True)
 
             with sub_t3:
                 for idx, row in my_data.sort_values('date', ascending=False).iterrows():
                     with st.container(border=True):
                         r_c1, r_c2, r_c3 = st.columns([3, 1.5, 1])
-                        r_c1.markdown(f"**{row['exercise']}**<br><small style='color:#94a3b8;'>{row['date']} · {row['memo']}</small>", unsafe_allow_html=True)
+                        r_c1.markdown(f"**{row['exercise']}**<br><small style='color:#64748B;'>{row['date']} · {row['memo']}</small>", unsafe_allow_html=True)
                         new_w = r_c2.number_input("수정", value=float(row['weight']), key=f"edit_w_{idx}", label_visibility="collapsed")
                         with r_c3:
                             if st.button("저장", key=f"save_{idx}", use_container_width=True):
@@ -528,18 +679,18 @@ with main_tab4:
 
         if my_today_log.empty:
             with st.form("personal_log_form"):
-                user_log = st.text_area("✍️ 오늘의 훈련 일지", placeholder="오늘 WOD 기록, 컨디션, 피드백을 자유롭게 남겨보세요.")
+                user_log = st.text_area("✍️ 오늘의 훈련 일지", placeholder="오늘 WOD 기록(시간/라운드), 컨디션, 코칭 포인트를 자유롭게 기록해 보세요.")
                 if st.form_submit_button("💾 오늘 일지 저장", type="primary", use_container_width=True):
                     if user_log.strip():
                         new_log = pd.DataFrame([{"date": today_str, "name": user_name, "log_content": user_log}])
                         if save_to_gsheet(pd.concat([logs_df, new_log], ignore_index=True), "training_logs"):
-                            st.toast("오완완! 일지가 저장되었습니다 🔥", icon="💪")
-                            time.sleep(0.8)
+                            st.toast("오완완! 훈련 일지가 저장되었습니다 🔥", icon="💪")
+                            time.sleep(0.7)
                             st.rerun()
         else:
-            st.success("✅ 오늘 훈련 일지 작성을 완료했습니다!")
+            st.success("✅ 오늘의 훈련 일지 작성을 완료했습니다!")
 
-        st.markdown("#### 📅 나의 일지 히스토리")
+        st.markdown("#### 📅 훈련 일지 아카이브")
         my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False)
         if not my_past_logs.empty:
             for idx, row in my_past_logs.iterrows():
@@ -550,7 +701,7 @@ with main_tab4:
                         logs_df.loc[idx, 'log_content'] = edited_log
                         if save_to_gsheet(logs_df, "training_logs"):
                             st.toast("수정 완료!", icon="✨")
-                            time.sleep(0.8)
+                            time.sleep(0.7)
                             st.rerun()
         else:
             st.caption("아직 작성된 일지가 없습니다.")
