@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 
 # 1. 페이지 설정
-st.set_page_config(page_title="LIKE 1RM Tracker", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="⚡", layout="centered")
 
 # --- 🎨 하이엔드 피트니스 UI 커스텀 CSS ---
 st.markdown("""
@@ -30,14 +30,6 @@ st.markdown("""
     }
 
     /* 상단 브랜드 헤더 */
-    .brand-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.5rem 0 1rem 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        margin-bottom: 1.2rem;
-    }
     .brand-title {
         font-size: 1.65rem;
         font-weight: 900;
@@ -164,7 +156,7 @@ st.markdown("""
         margin-bottom: 8px;
     }
 
-    /* 탭 네비게이션 세련되게 커스텀 */
+    /* 탭 네비게이션 (3단 균등 배치) */
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
         background-color: #111827;
@@ -173,10 +165,12 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 0.07);
     }
     .stTabs [data-baseweb="tab"] {
+        flex: 1;
+        justify-content: center;
         border-radius: 10px;
-        padding: 8px 14px;
+        padding: 9px 12px;
         font-weight: 700;
-        font-size: 0.88rem;
+        font-size: 0.9rem;
         color: #94A3B8;
         transition: all 0.2s ease;
     }
@@ -255,8 +249,7 @@ def load_data_from_api(worksheet_name="Sheet1"):
     col_mapping = {
         "Sheet1": ['name', 'exercise', 'weight', 'date', 'password', 'gender', 'memo'],
         "comments": ['name', 'comment', 'date'],
-        "today_wod": ['date', 'workout', 'description'],
-        "training_logs": ['date', 'name', 'log_content']
+        "today_wod": ['date', 'workout', 'description']
     }
     required_cols = col_mapping.get(worksheet_name, [])
     try:
@@ -289,7 +282,8 @@ def save_to_gsheet(dataframe, worksheet_name="Sheet1"):
         return True
     except Exception: return False
 
-def append_to_gsheet(list_data, worksheet_name="comments"):
+# 동시 접속 충돌 방지용 한 줄 추가(Append) 함수
+def append_to_gsheet(list_data, worksheet_name="Sheet1"):
     try:
         client = get_gspread_client()
         sh = client.open_by_key(SHEET_ID)
@@ -303,7 +297,6 @@ def append_to_gsheet(list_data, worksheet_name="comments"):
 raw_df = load_data_from_api("Sheet1")
 comments_df = load_data_from_api("comments")
 wod_df = load_data_from_api("today_wod")
-logs_df = load_data_from_api("training_logs")
 today_str = (datetime.now() + timedelta(hours=9)).strftime("%Y-%m-%d")
 df = raw_df[~raw_df['exercise'].astype(str).str.lower().isin(['registration', 'join'])].copy()
 
@@ -318,7 +311,7 @@ with h_col1:
     st.markdown("""
     <div style="padding-top:4px;">
         <div class="brand-sub">BOX PERFORMANCE LAB</div>
-        <h1 class="brand-title">⚡ LIKE 1RM TRACKER</h1>
+        <h1 class="brand-title">⚡ CROSSFIT 1RM TRACKER</h1>
     </div>
     """, unsafe_allow_html=True)
 
@@ -432,19 +425,22 @@ else:
             n_g = c2.selectbox("성별", ["남성", "여성"], label_visibility="collapsed")
             n_p = c3.text_input("비번", type="password", placeholder="비번 4자리", label_visibility="collapsed")
             if c4.button("등록", use_container_width=True, type="primary") and n_n and n_p:
-                new_u = pd.DataFrame([{"name": n_n, "exercise": "Registration", "weight": 0, "date": today_str, "password": f"'{n_p}", "gender": n_g, "memo": "반가워요!"}])
-                if save_to_gsheet(pd.concat([raw_df, new_u], ignore_index=True)):
-                    st.session_state.update({"is_auth": True, "user_name": n_n, "user_gender": n_g, "password": n_p})
-                    st.rerun()
+                if not raw_df.empty and n_n in raw_df['name'].values:
+                    st.error("이미 등록된 이름입니다.")
+                else:
+                    # 신규 가입도 append_to_gsheet로 동시 접속 충돌 방지
+                    row_data = [n_n, "Registration", 0, today_str, f"'{n_p}", n_g, "반가워요!"]
+                    if append_to_gsheet(row_data, "Sheet1"):
+                        st.session_state.update({"is_auth": True, "user_name": n_n, "user_gender": n_g, "password": n_p})
+                        st.rerun()
 
 # ==========================================
-# 메인 네비게이션 탭
+# 메인 네비게이션 탭 (핵심 3단 구성)
 # ==========================================
-main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs([
+main_tab1, main_tab2, main_tab3 = st.tabs([
     "🔥 WOD & 라운지", 
     "🏆 박스 랭킹", 
-    "📊 내 기록 · 분석", 
-    "📓 훈련 일지"
+    "📊 내 기록 · 분석"
 ])
 
 # ------------------------------------------
@@ -493,7 +489,7 @@ with main_tab1:
         st.caption("💡 로그인하면 박스 멤버들과 실시간 응원 메시지를 나눌 수 있습니다.")
 
     if not comments_df.empty:
-        for idx, row in comments_df.sort_index(ascending=False).head(10).iterrows():
+        for idx, row in comments_df.sort_index(ascending=False).head(12).iterrows():
             c_col, d_col = st.columns([11, 1])
             c_col.markdown(f"""
             <div class="feed-item">
@@ -545,25 +541,21 @@ with main_tab3:
     else:
         user_name = st.session_state.user_name
         
-        with st.expander("⚡ 새 PR 기록 등록 / 업데이트", expanded=False):
+        with st.expander("⚡ 새 PR 기록 등록 / 추가", expanded=False):
             up_ex = st.selectbox("종목 선택", exercise_list, key="up_ex_sel_fixed")
-            existing_record = raw_df[(raw_df['name'] == user_name) & (raw_df['exercise'] == up_ex)]
-            last_weight = float(existing_record.iloc[-1]['weight']) if not existing_record.empty else 0.0
+            existing_record = df[(df['name'] == user_name) & (df['exercise'] == up_ex)]
+            last_weight = float(pd.to_numeric(existing_record['weight'], errors='coerce').max()) if not existing_record.empty else 0.0
             
             with st.form("update_form_final", clear_on_submit=True):
                 col_w, col_m = st.columns([1, 2])
                 w = col_w.number_input("중량 (lbs)", step=5.0, value=last_weight)
                 m = col_m.text_input("메모", placeholder="컨디션이나 특이사항 (선택)")
-                if st.form_submit_button("💾 PR 저장하기", use_container_width=True, type="primary"):
-                    other_records = raw_df[~((raw_df['name'] == user_name) & (raw_df['exercise'] == up_ex))]
+                if st.form_submit_button("💾 PR 기록 저장하기", use_container_width=True, type="primary"):
                     fixed_pw = str(st.session_state.password).strip().zfill(4)
-                    new_entry = pd.DataFrame([{
-                        "name": user_name, "exercise": up_ex, "weight": w,
-                        "date": today_str, "password": f"'{fixed_pw}",
-                        "gender": st.session_state.user_gender, "memo": m
-                    }])
-                    if save_to_gsheet(pd.concat([other_records, new_entry], ignore_index=True)):
-                        st.toast(f"🏆 {up_ex} {w} lbs 저장 완료!", icon="🔥")
+                    # 동시 접속 안전성 & 성장 그래프 누적을 위해 append_to_gsheet 사용
+                    new_row = [user_name, up_ex, w, today_str, f"'{fixed_pw}", st.session_state.user_gender, m]
+                    if append_to_gsheet(new_row, "Sheet1"):
+                        st.toast(f"🏆 {up_ex} {w} lbs 기록 추가 완료!", icon="🔥")
                         time.sleep(0.7)
                         st.rerun()
 
@@ -666,42 +658,3 @@ with main_tab3:
                                 if save_to_gsheet(raw_df): st.rerun()
                             if st.button("삭제", key=f"del_rec_{idx}", use_container_width=True):
                                 if save_to_gsheet(raw_df.drop(idx)): st.rerun()
-
-# ------------------------------------------
-# TAB 4: 나의 훈련 일지
-# ------------------------------------------
-with main_tab4:
-    if not st.session_state.is_auth:
-        st.warning("🔒 로그인 후 개인 훈련 일지를 작성하고 관리할 수 있습니다.")
-    else:
-        user_name = st.session_state.user_name
-        my_today_log = logs_df[(logs_df['name'] == user_name) & (logs_df['date'] == today_str)]
-
-        if my_today_log.empty:
-            with st.form("personal_log_form"):
-                user_log = st.text_area("✍️ 오늘의 훈련 일지", placeholder="오늘 WOD 기록(시간/라운드), 컨디션, 코칭 포인트를 자유롭게 기록해 보세요.")
-                if st.form_submit_button("💾 오늘 일지 저장", type="primary", use_container_width=True):
-                    if user_log.strip():
-                        new_log = pd.DataFrame([{"date": today_str, "name": user_name, "log_content": user_log}])
-                        if save_to_gsheet(pd.concat([logs_df, new_log], ignore_index=True), "training_logs"):
-                            st.toast("오완완! 훈련 일지가 저장되었습니다 🔥", icon="💪")
-                            time.sleep(0.7)
-                            st.rerun()
-        else:
-            st.success("✅ 오늘의 훈련 일지 작성을 완료했습니다!")
-
-        st.markdown("#### 📅 훈련 일지 아카이브")
-        my_past_logs = logs_df[logs_df['name'] == user_name].sort_values('date', ascending=False)
-        if not my_past_logs.empty:
-            for idx, row in my_past_logs.iterrows():
-                row_date = str(row['date'])
-                with st.expander(f"🗓️ {row_date} 훈련 기록", expanded=(row_date == today_str)):
-                    edited_log = st.text_area("내용", value=row['log_content'], key=f"edit_log_{idx}", label_visibility="collapsed")
-                    if st.button("💾 수정 내용 저장", key=f"up_log_{idx}"):
-                        logs_df.loc[idx, 'log_content'] = edited_log
-                        if save_to_gsheet(logs_df, "training_logs"):
-                            st.toast("수정 완료!", icon="✨")
-                            time.sleep(0.7)
-                            st.rerun()
-        else:
-            st.caption("아직 작성된 일지가 없습니다.")
