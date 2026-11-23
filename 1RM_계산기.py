@@ -317,9 +317,8 @@ with h_col1:
 
 with h_col2:
     if st.session_state.is_auth:
-        st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
         b1, b2 = st.columns(2)
-        if b1.button("🔄", help="데이터 새로고침", use_container_width=True):
+        if b1.button("새로고침", help="최신 데이터 동기화", use_container_width=True):
             st.cache_data.clear()
             st.toast("최신 데이터를 동기화했습니다!", icon="⚡")
             time.sleep(0.3)
