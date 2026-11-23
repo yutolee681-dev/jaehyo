@@ -311,7 +311,7 @@ with h_col1:
     st.markdown("""
     <div style="padding-top:4px;">
         <div class="brand-sub">BOX PERFORMANCE LAB</div>
-        <h1 class="brand-title">⚡ CROSSFIT 1RM TRACKER</h1>
+        <h1 class="brand-title">⚡ LIKE 1RM TRACKER</h1>
     </div>
     """, unsafe_allow_html=True)
 
