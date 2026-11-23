@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 
 # 1. 페이지 설정
-st.set_page_config(page_title="CrossFit 1RM Tracker", page_icon="⚡", layout="centered")
+st.set_page_config(page_title="LIKE 1RM Tracker", page_icon="⚡", layout="centered")
 
 # --- 🎨 하이엔드 피트니스 UI 커스텀 CSS ---
 st.markdown("""
