@@ -94,26 +94,37 @@ st.markdown("""
     .kpi-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+        gap: 8px;
         margin: 0.8rem 0 1.2rem 0;
     }
     .kpi-box {
         background: linear-gradient(180deg, #131B2E 0%, #0F1626 100%);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 14px;
-        padding: 0.9rem 0.6rem;
+        padding: 0.85rem 0.5rem;
         text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     .kpi-label {
         font-size: 0.73rem;
         color: #94A3B8;
+        font-weight: 700;
+        margin-bottom: 3px;
+    }
+    .kpi-sub {
+        font-size: 0.62rem;
+        color: #64748B;
         font-weight: 600;
-        margin-bottom: 4px;
+        margin-top: 3px;
+        letter-spacing: -0.02em;
     }
     .kpi-val {
         font-size: 1.15rem;
         font-weight: 800;
         color: #F8FAFC;
+        line-height: 1.2;
     }
     .kpi-accent { color: #A3E635; }
 
@@ -318,7 +329,6 @@ st.markdown("""
 # 로그인 상태 바 / 로그인 패널
 if st.session_state.is_auth:
     with st.expander(f"🟢 **{st.session_state.user_name}**님 접속 중 · 계정 및 설정"):
-        # 새로고침 & 로그아웃 버튼을 설정 패널 최상단에 깔끔하게 배치
         q_col1, q_col2 = st.columns(2)
         if q_col1.button("데이터 새로고침", use_container_width=True):
             st.cache_data.clear()
@@ -476,23 +486,26 @@ with main_tab1:
             best = my_data.sort_values('weight', ascending=False).drop_duplicates('exercise').copy()
             best['ex_short'] = best['exercise'].map(rename_map).fillna(best['exercise'])
 
-            # 상단 KPI 요약 카드
-            big3_list = ["Back Squat", "Deadlift", "Bench Press"]
+            # 상단 KPI 요약 카드 (크로스핏 3대 토탈 기준 + 종목 명시)
+            big3_list = ["Back Squat", "Deadlift", "Shoulder Press"]
             big3_total = int(best[best['exercise'].isin(big3_list)]['weight'].sum())
             top_row = best.iloc[0]
             st.markdown(f"""
             <div class="kpi-grid">
                 <div class="kpi-box">
-                    <div class="kpi-label">3대 중량 합계</div>
+                    <div class="kpi-label">CF 3대 토탈</div>
                     <div class="kpi-val kpi-accent">{big3_total} <small style="font-size:0.75rem; color:#94A3B8;">lbs</small></div>
+                    <div class="kpi-sub">B.Squat+Dead+S.Press</div>
                 </div>
                 <div class="kpi-box">
                     <div class="kpi-label">최고 중량 종목</div>
                     <div class="kpi-val">{top_row['ex_short']} <small style="font-size:0.75rem; color:#38BDF8;">{int(top_row['weight'])}</small></div>
+                    <div class="kpi-sub">개인 최고 기록</div>
                 </div>
                 <div class="kpi-box">
                     <div class="kpi-label">측정 완료 종목</div>
                     <div class="kpi-val">{len(best)} <small style="font-size:0.75rem; color:#94A3B8;">/ {len(exercise_list)}</small></div>
+                    <div class="kpi-sub">등록 진행률</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
