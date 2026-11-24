@@ -632,10 +632,20 @@ with main_tab3:
         with st.form(key="comment_form", clear_on_submit=True):
             c1, c2 = st.columns([4.2, 1])
             new_c = c1.text_input("메시지", placeholder=f"{st.session_state.user_name}님, 오늘 와드 어땠나요? 한마디 남겨보세요! 🔥", label_visibility="collapsed")
-            if c2.form_submit_button("전송", use_container_width=True, type="primary") and new_c:
-                kst = (datetime.now() + timedelta(hours=9)).strftime("%m/%d %H:%M")
-                if append_to_gsheet([st.session_state.user_name, new_c, kst], "comments"):
-                    st.rerun()
+            submitted = c2.form_submit_button("전송", use_container_width=True, type="primary")
+            
+            if submitted:
+                if not new_c.strip():
+                    st.warning("메시지 내용을 입력해 주세요!")
+                else:
+                    with st.spinner("🚀 메시지 등록 중..."):
+                        kst = (datetime.now() + timedelta(hours=9)).strftime("%m/%d %H:%M")
+                        if append_to_gsheet([st.session_state.user_name, new_c, kst], "comments"):
+                            st.toast("✅ 메시지가 등록되었습니다!", icon="💬")
+                            time.sleep(0.4)
+                            st.rerun()
+                        else:
+                            st.error("등록에 실패했습니다. 잠시 후 다시 시도해 주세요.")
     else:
         st.caption("💡 로그인하면 박스 멤버들과 실시간 응원 메시지를 나눌 수 있습니다.")
 
@@ -653,5 +663,8 @@ with main_tab3:
             """, unsafe_allow_html=True)
             if st.session_state.is_auth and row['name'] == st.session_state.user_name:
                 if d_col.button("✕", key=f"del_{idx}", help="삭제"):
-                    if save_to_gsheet(comments_df.drop(idx), "comments"):
-                        st.rerun()
+                    with st.spinner("🗑️ 삭제 중..."):
+                        if save_to_gsheet(comments_df.drop(idx), "comments"):
+                            st.toast("메시지가 삭제되었습니다.", icon="🗑️")
+                            time.sleep(0.4)
+                            st.rerun()
