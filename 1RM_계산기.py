@@ -321,7 +321,7 @@ if 'is_auth' not in st.session_state:
 # ==========================================
 st.markdown("""
 <div style="padding: 2px 0 10px 0;">
-    <div class="brand-sub">BOX PERFORMANCE LAB</div>
+    <div class="brand-sub">CREATED BY JAEHYO</div>
     <h1 class="brand-title">⚡ LIKE 1RM</h1>
 </div>
 """, unsafe_allow_html=True)
