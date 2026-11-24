@@ -553,6 +553,7 @@ with main_tab1:
                 ))
 
                 fig.update_layout(
+                    dragmode=False,
                     polar=dict(
                         bgcolor='rgba(15, 23, 42, 0.45)',
                         angularaxis=dict(
@@ -576,7 +577,7 @@ with main_tab1:
                     height=330,
                     margin=dict(l=55, r=55, t=30, b=30)
                 )
-                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig, use_container_width=True, config={'staticPlot': True})
 
                 bars = alt.Chart(best).mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6, color='#38BDF8').encode(
                     y=alt.Y('ex_short:N', sort='-x', title=None, axis=alt.Axis(labelColor='#CBD5E1')),
