@@ -515,19 +515,68 @@ with main_tab1:
             with sub_t1:
                 radar_labels = ["Back Squat", "Deadlift", "Shoulder Press", "Thruster", "Power Clean", "Power Snatch"]
                 radar_values = [best[best['exercise'] == ex]['weight'].max() if not best[best['exercise'] == ex].empty else 0 for ex in radar_labels]
-                fig = go.Figure(go.Scatterpolar(
-                    r=radar_values + [radar_values[0]], theta=radar_labels + [radar_labels[0]],
-                    fill='toself', fillcolor='rgba(163, 230, 53, 0.22)', line=dict(color='#A3E635', width=2.5)
+                max_val = max(radar_values) if any(radar_values) else 100
+                chart_limit = max_val * 1.18
+
+                custom_theta = [
+                    f"<b>{rename_map.get(ex, ex)}</b><br><span style='color:#A3E635; font-size:11px;'>{int(val)} lbs</span>"
+                    for ex, val in zip(radar_labels, radar_values)
+                ]
+
+                fig = go.Figure()
+
+                # 1. 바깥쪽 은은한 가이드 링
+                fig.add_trace(go.Scatterpolar(
+                    r=[max_val] * (len(radar_labels) + 1),
+                    theta=custom_theta + [custom_theta[0]],
+                    mode='lines',
+                    line=dict(color='rgba(56, 189, 248, 0.22)', width=1.2, dash='dot'),
+                    hoverinfo='skip',
+                    showlegend=False
                 ))
+
+                # 2. 메인 스트렝스 영역 (네온 필 & 글로우 포인트)
+                fig.add_trace(go.Scatterpolar(
+                    r=radar_values + [radar_values[0]],
+                    theta=custom_theta + [custom_theta[0]],
+                    mode='lines+markers',
+                    fill='toself',
+                    fillcolor='rgba(56, 189, 248, 0.18)',
+                    line=dict(color='#38BDF8', width=2.8),
+                    marker=dict(
+                        size=9,
+                        color='#A3E635',
+                        line=dict(color='#090D16', width=2)
+                    ),
+                    hovertemplate='%{theta}<extra></extra>',
+                    showlegend=False
+                ))
+
                 fig.update_layout(
                     polar=dict(
-                        bgcolor='rgba(0,0,0,0)',
-                        angularaxis=dict(tickfont=dict(color='#CBD5E1', size=11), gridcolor='rgba(255,255,255,0.08)'),
-                        radialaxis=dict(visible=True, range=[0, max(radar_values) + 15 if any(radar_values) else 100], gridcolor='rgba(255,255,255,0.08)', showticklabels=False)
+                        bgcolor='rgba(15, 23, 42, 0.45)',
+                        angularaxis=dict(
+                            tickfont=dict(color='#E2E8F0', size=12),
+                            gridcolor='rgba(255, 255, 255, 0.06)',
+                            linecolor='rgba(255, 255, 255, 0.12)',
+                            rotation=90,
+                            direction='clockwise'
+                        ),
+                        radialaxis=dict(
+                            visible=True,
+                            range=[0, chart_limit],
+                            gridcolor='rgba(255, 255, 255, 0.06)',
+                            linecolor='rgba(0,0,0,0)',
+                            showticklabels=False,
+                            nticks=4
+                        )
                     ),
-                    paper_bgcolor='rgba(0,0,0,0)', height=300, margin=dict(l=55, r=55, t=20, b=20)
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    height=330,
+                    margin=dict(l=55, r=55, t=30, b=30)
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
                 bars = alt.Chart(best).mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6, color='#38BDF8').encode(
                     y=alt.Y('ex_short:N', sort='-x', title=None, axis=alt.Axis(labelColor='#CBD5E1')),
